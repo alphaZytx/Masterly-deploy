@@ -161,7 +161,7 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
