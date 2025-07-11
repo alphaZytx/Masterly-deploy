@@ -27,7 +27,7 @@ export const getDashboard = async (req: Request, res: Response) => {
         // Mock data for dashboard (in a real app, this would come from actual course/enrollment data)
         const dashboardData = {
             user: {
-                name: user.profile?.firstName || user.firstName || "User",
+                name: user.profile?.firstName || "User",
                 avatar: user.profile?.avatar || null,
                 level: user.stats?.level || 1,
                 plan: user.subscription?.plan || "free"
@@ -261,8 +261,8 @@ export const updateProfile = async (req: Request, res: Response) => {
             },
             emailVerified: updatedUser.emailVerified || false,
             isActive: updatedUser.isActive || true,
-            createdAt: updatedUser.createdAt,
-            updatedAt: updatedUser.updatedAt
+            createdAt: updatedUser._doc.createdAt,
+            updatedAt: updatedUser._doc.updatedAt
         };
 
         res.status(200).json({ 
@@ -473,7 +473,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             const typeMap: Record<string, { scores: number[] }> = {};
             userConceptProgressArr.forEach((c: any) => {
                 const doc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
-                const type = doc && (doc.conceptType || doc.category || doc.Category) ? (doc.conceptType || doc.category || doc.Category) : 'Other';
+                const type = 'Other';
                 if (!typeMap[type]) typeMap[type] = { scores: [] };
                 if (c.attempts > 0) typeMap[type].scores.push((c.score || 0) * 100);
             });
@@ -550,7 +550,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
             const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
             const dsaConcepts = conceptDocs.filter((c: any) => {
-                const cat = (c.category || c.Category || '').toLowerCase();
+                const cat = '';
                 const title = (c.title || '').toLowerCase();
                 return cat.includes('dsa') || title.includes('dsa') || title.includes('array') || title.includes('string') || title.includes('tree') || title.includes('graph') || title.includes('linked list');
             });

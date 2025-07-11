@@ -9,7 +9,7 @@ export async function getUserProgressMap(userId: string) {
   const map: Record<string, { masteryScore: number }> = {};
   for (const doc of progressDocs) {
     map[doc.conceptId.toString()] = {
-      masteryScore: doc.score
+      masteryScore: (doc as any).score
     };
   }
 

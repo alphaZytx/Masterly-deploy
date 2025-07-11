@@ -11,7 +11,7 @@ export function canUserAttempt(
 ): boolean {
   const prereqEdges = graph.inEdges(conceptId) || [];
 
-  return prereqEdges.every(edge => {
+  return prereqEdges.every((edge: any) => {
     const prereqId = edge.v;
     const score = userProgressMap[prereqId]?.masteryScore ?? 0;
     return score >= masteryThreshold;

@@ -202,9 +202,9 @@ export class CourseStatsCalculator {
         }
 
         // Calculate total duration from estimated learning time
-        if (concept.Est_Learning_Time_Hours) {
-          totalDuration += concept.Est_Learning_Time_Hours;
-        }
+        // if (concept.Est_Learning_Time_Hours) {
+        //   totalDuration += concept.Est_Learning_Time_Hours;
+        // }
       });
 
       return {
