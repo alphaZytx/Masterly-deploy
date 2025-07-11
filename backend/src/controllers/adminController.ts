@@ -72,13 +72,19 @@ export const updateUser = async (req: Request, res: Response) => {
     try {
         const user = await User.findById(req.params.id);
         if (user) {
-            user.name = req.body.name || user.name;
+            // No 'name' field in schema, use profile fields
+            if (req.body.name) {
+                const [firstName, ...rest] = req.body.name.split(' ');
+                user.profile.firstName = firstName;
+                user.profile.lastName = rest.join(' ');
+            }
             user.email = req.body.email || user.email;
             user.role = req.body.role || user.role;
             const updatedUser = await user.save();
             res.json({
                 _id: updatedUser._id,
-                name: updatedUser.name,
+                // No 'name' field, return full name from profile
+                name: `${updatedUser.profile?.firstName || ''} ${updatedUser.profile?.lastName || ''}`.trim(),
                 email: updatedUser.email,
                 role: updatedUser.role,
             });
@@ -116,8 +122,9 @@ export const deleteUser = async (req: Request, res: Response) => {
 
 export const createConcept = async (req: Request, res: Response) => {
     try {
-        const { title, description, contentBlocks, prerequisites, quiz } = req.body;
-        const concept = new Concept({ title, description, contentBlocks, prerequisites, quiz });
+        const { title, description, prerequisites, quiz } = req.body;
+        // Remove contentBlocks (not in schema)
+        const concept = new Concept({ title, description, prerequisites, quiz });
         const createdConcept = await concept.save();
         res.status(201).json(createdConcept);
     } catch (error) {
@@ -128,12 +135,12 @@ export const createConcept = async (req: Request, res: Response) => {
 
 export const updateConcept = async (req: Request, res: Response) => {
     try {
-        const { title, description, contentBlocks, prerequisites, quiz } = req.body;
+        const { title, description, prerequisites, quiz } = req.body;
+        // Remove contentBlocks (not in schema)
         const concept = await Concept.findById(req.params.id);
         if (concept) {
             concept.title = title || concept.title;
             concept.description = description || concept.description;
-            concept.contentBlocks = contentBlocks || concept.contentBlocks;
             concept.prerequisites = prerequisites || concept.prerequisites;
             concept.quiz = quiz || concept.quiz;
             const updatedConcept = await concept.save();
@@ -220,11 +227,12 @@ export const getEmergencyContacts = async (req: Request, res: Response) => {
 // GET /api/admin/courses-with-concepts
 export const getCoursesWithConceptTitles = async (req, res) => {
   try {
-    const courses = await require('../models/courseModel').default.find({}, 'title _id concepts');
+    const courses = await require('../models/courseModel').default.find({}, 'title _id topics');
     const result = courses.map(course => ({
       _id: course._id,
       title: course.title,
-      concepts: (course.concepts || []).map(c => ({ conceptId: c.conceptId, title: c.title }))
+      // Use topics if concepts is not present
+      concepts: (course.topics || []).flatMap((topic: any) => (topic.conceptReferences || []).map((c: any) => ({ conceptId: c.conceptId, title: c.title })))
     }));
     res.json({ success: true, data: result });
   } catch (err) {

@@ -4,10 +4,9 @@ import Course from '../models/courseModel';
 import Concept from '../models/conceptModel';
 import UserProgress from '../models/userProgressModel';
 import UserConceptProgress from '../models/userConceptProgress';
-import { IUser } from '../models/userModel';
 
 interface AuthenticatedRequest extends Request {
-  user?: IUser;
+  user?: any;
 }
 
 export class CourseLearningController {

@@ -9,7 +9,7 @@ import {
 } from '../controllers/conceptController';
 import { protect } from '../middlewares/authMiddleware';
 import { Request, Response } from 'express';
-import { User } from '../models/userModel';
+import User from '../models/userModel';
 
 const router = Router();
 

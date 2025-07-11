@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
-import User, { IUser } from '../models/userModel';
+import User from '../models/userModel';
 import LearningPath from '../models/learningPathModel';
 import UserNodeProgress from '../models/userNodeProgress';
 import Course from '../models/courseModel';
@@ -13,7 +13,7 @@ export class DashboardController {
    */
   static async getDashboardData(req: Request, res: Response) {
     try {
-      const userId = (req.user as IUser)._id;
+      const userId = (req.user as any)._id;
 
       // Get user with populated data
       const user = await User.findById(userId).select('-password');
@@ -102,7 +102,7 @@ export class DashboardController {
     const inProgressConcepts = userProgress.filter(p => p.status === 'in_progress').length;
     
     const totalTimeSpent = userProgress.reduce((sum, p) => sum + (p.timeSpent || 0), 0);
-    const totalQuizAttempts = userProgress.reduce((sum, p) => sum + (p.quizAttempts?.length || 0), 0);
+    const totalQuizAttempts = userProgress.reduce((sum, p) => sum + ((p.quizAttempts || []).length || 0), 0);
     const averageMasteryScore = userProgress.length > 0 
       ? userProgress.reduce((sum, p) => sum + (p.masteryScore || 0), 0) / userProgress.length 
       : 0;
@@ -337,7 +337,7 @@ export class DashboardController {
    */
   static async getLearningSummary(req: Request, res: Response) {
     try {
-      const userId = (req.user as IUser)._id;
+      const userId = (req.user as any)._id;
 
       const userProgress = await UserNodeProgress.find({ userId })
         .populate('conceptId', 'title Level Category course')

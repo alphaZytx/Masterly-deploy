@@ -144,12 +144,14 @@ export const getUserProgress = async (req: Request, res: Response) => {
         // For each concept, return locked status
         const progressWithLock = userConceptProgressArr.map((c: any) => ({
             conceptId: c.conceptId,
-            score: c.score,
+            // Use normalized masteryScore as score (0-1)
+            score: typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0,
             attempts: c.attempts,
             lastUpdated: c.lastUpdated,
             mastered: c.mastered,
             masteredAt: c.masteredAt,
-            achievements: c.achievements,
+            // No achievements array in schema, so fallback to []
+            achievements: c.achievements || [],
             locked: !unlockedConcepts.has(c.conceptId.toString()),
         }));
 
@@ -290,9 +292,8 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
 
         // --- Concepts Mastered & Quiz Analytics ---
         const userProgress = await UserConceptProgress.find({ userId });
-        const userConceptProgressArr = userProgress.map((p: any) => p.concepts).flat(); // Flatten all progresses
-        // --- Study Sessions ---
-        // const user = await User.findById(userId).select('studySessions'); // Removed as per edit hint
+        // Each progress doc is for a single concept, so use as-is
+        const userConceptProgressArr = userProgress;
 
         const now = new Date();
         const weekStart = new Date(now);
@@ -316,9 +317,9 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             // Quizzes completed: concepts with attempts > 0
             quizzesCompletedTotal = userConceptProgressArr.filter((c: any) => c.attempts > 0).length;
             quizzesCompletedThisWeek = userConceptProgressArr.filter((c: any) => c.attempts > 0 && c.lastUpdated >= weekStart).length;
-            // Average score: average of all scores for concepts with attempts > 0
-            allScores = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => c.score * 100); // convert to percent
-            monthlyScores = userConceptProgressArr.filter((c: any) => c.attempts > 0 && c.lastUpdated >= monthStart).map((c: any) => c.score * 100);
+            // Average score: average of all normalized masteryScores for concepts with attempts > 0
+            allScores = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => (typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100); // percent
+            monthlyScores = userConceptProgressArr.filter((c: any) => c.attempts > 0 && c.lastUpdated >= monthStart).map((c: any) => (typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100);
         }
         const avgScore = allScores.length > 0 ? (allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length).toFixed(2) : 0;
         const avgScoreMonth = monthlyScores.length > 0 ? (monthlyScores.reduce((a: number, b: number) => a + b, 0) / monthlyScores.length).toFixed(2) : 0;
@@ -326,11 +327,6 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
         // --- Study Time Calculation ---
         let totalStudyTime = 0;
         let studyTimeThisWeek = 0;
-        // const user = await User.findById(userId).select('studySessions'); // Removed as per edit hint
-        // if (user && user.studySessions) { // Removed as per edit hint
-        //     totalStudyTime += user.studySessions.reduce((acc: number, session: any) => acc + session.durationMinutes, 0); // Removed as per edit hint
-        //     studyTimeThisWeek += user.studySessions.filter((session: any) => session.date >= weekStart).reduce((acc: number, session: any) => acc + session.durationMinutes, 0); // Removed as per edit hint
-        // }
         // 2. Mastered concepts (estLearningTimeHours or Est_Learning_Time_Hours)
         let conceptTimes = 0;
         let conceptTimesThisWeek = 0;
@@ -373,7 +369,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             // Concepts mastered that day
             const concepts = userProgress ? userConceptProgressArr.filter((c: any) => c.masteredAt && new Date(c.masteredAt).toDateString() === d.toDateString()).length : 0;
             // Study time that day (in hours)
-            const time = 0; // Removed as per edit hint
+            const time = 0;
             // Quizzes completed that day (attempts > 0 and lastUpdated on this day)
             const quizzes = userProgress ? userConceptProgressArr.filter((c: any) => c.attempts > 0 && new Date(c.lastUpdated).toDateString() === d.toDateString()).length : 0;
             return { day, concepts, time: Number(time.toFixed(2)), quizzes };
@@ -392,7 +388,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             // Concepts mastered this month
             const concepts = userProgress ? userConceptProgressArr.filter((c: any) => c.masteredAt && new Date(c.masteredAt).getMonth() === date.getMonth() && new Date(c.masteredAt).getFullYear() === year).length : 0;
             // Average score for concepts updated this month
-            const scores = userProgress ? userConceptProgressArr.filter((c: any) => c.lastUpdated && new Date(c.lastUpdated).getMonth() === date.getMonth() && new Date(c.lastUpdated).getFullYear() === year && c.attempts > 0).map((c: any) => c.score * 100) : [];
+            const scores = userProgress ? userConceptProgressArr.filter((c: any) => c.lastUpdated && new Date(c.lastUpdated).getMonth() === date.getMonth() && new Date(c.lastUpdated).getFullYear() === year && c.attempts > 0).map((c: any) => (typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100) : [];
             const score = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0;
             return { month, score, concepts };
         });
@@ -411,9 +407,9 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
                 const conceptDoc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
                 return {
                     quiz: conceptDoc ? conceptDoc.title : 'Unknown',
-                    score: Math.round((c.score || 0) * 100),
+                    score: Math.round((typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100),
                     date: c.lastUpdated ? new Date(c.lastUpdated).toLocaleDateString() : '',
-                    difficulty: conceptDoc && (conceptDoc.level || conceptDoc.Level) ? (conceptDoc.level || conceptDoc.Level) + '' : 'Unknown',
+                    difficulty: conceptDoc && (conceptDoc.title || 'Unknown') ? (conceptDoc.title || 'Unknown').toLowerCase().includes('dsa') || (conceptDoc.title || 'Unknown').toLowerCase().includes('array') || (conceptDoc.title || 'Unknown').toLowerCase().includes('string') || (conceptDoc.title || 'Unknown').toLowerCase().includes('tree') || (conceptDoc.title || 'Unknown').toLowerCase().includes('graph') || (conceptDoc.title || 'Unknown').toLowerCase().includes('linked list') ? 'DSA' : 'Unknown') : 'Unknown',
                 };
             });
         }
@@ -428,7 +424,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             const courseMap: Record<string, { total: number, completed: number, concepts: { title: string, mastered: boolean }[] }> = {};
             userConceptProgressArr.forEach((c: any) => {
                 const doc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
-                const course = doc && (doc.category || doc.Category) ? (doc.category || doc.Category) : 'Uncategorized';
+                const course = doc && (doc.title || 'Unknown') ? (doc.title || 'Unknown').toLowerCase().includes('dsa') || (doc.title || 'Unknown').toLowerCase().includes('array') || (doc.title || 'Unknown').toLowerCase().includes('string') || (doc.title || 'Unknown').toLowerCase().includes('tree') || (doc.title || 'Unknown').toLowerCase().includes('graph') || (doc.title || 'Unknown').toLowerCase().includes('linked list') ? 'DSA' : 'Uncategorized') : 'Uncategorized';
                 if (!courseMap[course]) courseMap[course] = { total: 0, completed: 0, concepts: [] };
                 courseMap[course].total += 1;
                 if (c.mastered) courseMap[course].completed += 1;
@@ -449,7 +445,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
         // Example mapping: Problem Solving = avg score, Speed = inverse avg attempts, etc.
         let performanceAnalysis: { subject: string, value: number }[] = [];
         if (userProgress && userConceptProgressArr.length > 0) {
-            const scores = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => c.score * 100);
+            const scores = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => (typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100);
             const attempts = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => c.attempts);
             const avgScore = scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : 0;
             const avgAttempts = attempts.length > 0 ? attempts.reduce((a: number, b: number) => a + b, 0) / attempts.length : 0;
@@ -475,7 +471,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
                 const doc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
                 const type = 'Other';
                 if (!typeMap[type]) typeMap[type] = { scores: [] };
-                if (c.attempts > 0) typeMap[type].scores.push((c.score || 0) * 100);
+                if (c.attempts > 0) typeMap[type].scores.push((typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100);
             });
             // Color palette
             const palette = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6366f1", "#f472b6", "#22d3ee", "#a3e635", "#facc15"];
@@ -495,7 +491,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             const conceptIds = notMasteredZeroScore.map((c: any) => c.conceptId);
             const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
             const priorities = ["High", "Medium", "Low"];
-            recommendedFocusAreas = conceptDocs.slice(0, 3).map((c: any, idx: number) => ({ name: c.title, priority: priorities[idx] || "Low" }));
+            recommendedFocusAreas = conceptDocs.slice(0, 3).map((c: any, idx: number) => ({ name: c.title || 'Unknown', priority: priorities[idx] || "Low" }));
         }
 
         // --- Courses Enrolled ---
@@ -528,7 +524,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
                     const conceptDoc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
                     c.achievements.forEach((a: any) => {
                         allAchievements.push({
-                            concept: conceptDoc ? conceptDoc.title : 'Unknown',
+                            concept: conceptDoc ? conceptDoc.title || 'Unknown' : 'Unknown',
                             achievement: a,
                             date: c.lastUpdated || new Date()
                         });
@@ -550,9 +546,8 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
             const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
             const dsaConcepts = conceptDocs.filter((c: any) => {
-                const cat = '';
                 const title = (c.title || '').toLowerCase();
-                return cat.includes('dsa') || title.includes('dsa') || title.includes('array') || title.includes('string') || title.includes('tree') || title.includes('graph') || title.includes('linked list');
+                return title.includes('dsa') || title.includes('array') || title.includes('string') || title.includes('tree') || title.includes('graph') || title.includes('linked list');
             });
             if (dsaConcepts.length > 0) {
                 // Demo: generate 1-2 upcoming DSA tests
@@ -633,8 +628,6 @@ export const recordStudySession = async (req: Request, res: Response) => {
         }
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
-        // user.studySessions = user.studySessions || []; // Removed as per edit hint
-        // user.studySessions.push({ date: new Date(date), durationMinutes }); // Removed as per edit hint
         await user.save();
         res.status(200).json({ message: 'Study session recorded' });
     } catch (error) {

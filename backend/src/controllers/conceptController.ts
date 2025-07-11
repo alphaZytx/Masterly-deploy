@@ -11,8 +11,9 @@ import { getQuizQuestions } from '../utils/conceptMapper';
 export const getAllConcepts = async (req: Request, res: Response) => {
     try {
         // Only select fields needed for a catalog view to keep the payload small.
+        // Remove non-existent fields from select
         const concepts = await Concept.find({})
-            .select('title description complexity estLearningTimeHours level category prerequisites')
+            .select('title description prerequisites')
             .populate('prerequisites', '_id title');
         console.log('Found concepts:', concepts.length);
         res.status(200).json(concepts);
@@ -37,9 +38,10 @@ export const searchConcepts = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Search query is required' });
         }
 
+        // Remove non-existent fields from select
         const concepts = await Concept.find({
             title: { $regex: q, $options: 'i' }
-        }).select('title description complexity estLearningTimeHours level category _id');
+        }).select('title description _id');
 
         console.log('Search results:', concepts.length, 'concepts found');
         res.status(200).json(concepts);
@@ -77,22 +79,18 @@ export const testConcepts = async (req: Request, res: Response) => {
  */
 export const testQuiz = async (req: Request, res: Response) => {
     try {
+        // Only check for quiz.questions (no Test_Questions or quiz as array)
         const conceptsWithQuiz = await Concept.find({
-            $or: [
-                { 'Test_Questions.0': { $exists: true } },
-                { 'quiz.0': { $exists: true } }
-            ]
-        }).select('title _id Test_Questions quiz');
+            'quiz.questions.0': { $exists: true }
+        }).select('title _id quiz');
         
         res.status(200).json({
             conceptsWithQuiz: conceptsWithQuiz.length,
             sampleConcepts: conceptsWithQuiz.slice(0, 3).map(c => ({
                 title: c.title,
                 id: c._id,
-                hasTestQuestions: c.Test_Questions && c.Test_Questions.length > 0,
-                hasOldQuiz: c.quiz && c.quiz.length > 0,
-                testQuestionsCount: c.Test_Questions?.length || 0,
-                oldQuizCount: c.quiz?.length || 0
+                hasQuizQuestions: c.quiz && Array.isArray(c.quiz.questions) && c.quiz.questions.length > 0,
+                quizQuestionsCount: c.quiz?.questions?.length || 0
             }))
         });
     } catch (error) {

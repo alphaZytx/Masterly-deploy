@@ -41,15 +41,15 @@ export const getRecommendation = async (req: Request, res: Response) => {
     console.log("Total concepts found:", concepts.length);
 
     // Check if goal concept exists
-    const goalConcept = concepts.find(c => c._id?.toString() === goalConceptId);
+    const goalConcept = concepts.find((c: any) => c._id?.toString() === goalConceptId);
     if (!goalConcept) {
       return res.status(404).json({ message: "Goal concept not found in database." });
     }
 
     // Build graph input for graphlib
-    const conceptNodes = concepts.map(c => ({
-      _id: c.id.toString(),
-      prerequisites: Array.isArray(c.prerequisites) ? c.prerequisites.map(p => p.toString()) : [],
+    const conceptNodes = concepts.map((c: any) => ({
+      _id: c._id.toString(),
+      prerequisites: Array.isArray(c.prerequisites) ? c.prerequisites.map((p: any) => p.toString()) : [],
     }));
 
     const graph = buildConceptGraph(conceptNodes);
@@ -58,8 +58,8 @@ export const getRecommendation = async (req: Request, res: Response) => {
     let allPathsRaw: string[][] = [];
     if (currentConceptId === "root") {
       // Find all concepts with no prerequisites as potential starting points
-      const rootConcepts = concepts.filter(c => !c.prerequisites || c.prerequisites.length === 0);
-      console.log("Root concepts:", rootConcepts.map(c => c.title));
+      const rootConcepts = concepts.filter((c: any) => !c.prerequisites || c.prerequisites.length === 0);
+      console.log("Root concepts:", rootConcepts.map((c: any) => c.title));
       
       // Try to find paths from each root concept to the goal
       for (const rootConcept of rootConcepts) {
@@ -82,22 +82,22 @@ export const getRecommendation = async (req: Request, res: Response) => {
       }
     }
 
-    // ✅ Fetch user's progress using authenticated user ID
-    const userProgressDoc = await UserConceptProgress.findOne({ userId: authenticatedUserId });
+    // Fetch ALL user's progress docs using authenticated user ID
+    const userProgressDocs = await UserConceptProgress.find({ userId: authenticatedUserId });
     const masteryMap: Record<string, number> = {};
 
-    if (userProgressDoc) {
-      userProgressDoc.concepts.forEach(entry => {
-        masteryMap[entry.conceptId.toString()] = entry.score;
-      });
-    }
+    // Build mastery map: conceptId -> normalized masteryScore (0-1)
+    userProgressDocs.forEach((doc: any) => {
+      // masteryScore is 0-100, normalize to 0-1
+      masteryMap[doc.conceptId] = (typeof doc.masteryScore === 'number') ? Math.max(0, Math.min(1, doc.masteryScore / 100)) : 0;
+    });
 
     // Build lookup map of concept metadata
     const conceptMap: Record<string, { title: string; prerequisites: string[] }> = {};
-    concepts.forEach(c => {
-      conceptMap[c.id.toString()] = {
+    concepts.forEach((c: any) => {
+      conceptMap[c._id.toString()] = {
         title: c.title,
-        prerequisites: (c.prerequisites || []).map(p => p.toString())
+        prerequisites: (c.prerequisites || []).map((p: any) => p.toString())
       };
     });
 
@@ -133,7 +133,7 @@ export const getRecommendation = async (req: Request, res: Response) => {
     // Choose best path (lowest cost)
     const bestPath = [...allPaths].sort((a, b) => a.totalCost - b.totalCost)[0];
 
-    console.log("Best path found:", bestPath.detailedPath.map(p => p.title));
+    console.log("Best path found:", bestPath?.detailedPath?.map((p: any) => p.title));
 
     return res.status(200).json({
       bestPath,

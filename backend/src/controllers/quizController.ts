@@ -14,12 +14,12 @@ export const getQuizForConcept = async (req: Request, res: Response) => {
     try {
         const concept = await Concept.findById(req.params.conceptId).select('quiz');
 
-        if (!concept || !concept.quiz || concept.quiz.length === 0) {
+        if (!concept || !concept.quiz || concept.quiz.questions.length === 0) {
             return res.status(404).json({ message: 'Quiz not found for this concept.' });
         }
 
         // IMPORTANT: We must remove the correct answers before sending the quiz.
-        const sanitizedQuiz = concept.quiz.map(q => ({
+        const sanitizedQuiz = concept.quiz.questions.map((q: any) => ({
             questionText: q.questionText,
             options: q.options,
             _id: (q as any)._id, // Useful for the frontend to key on
@@ -165,7 +165,7 @@ export const submitQuiz = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Find concept entry in user's progress
-    const conceptEntry = userProgress.concepts.find((c: any) => c.conceptId.toString() === conceptId);
+    const conceptEntry = (userProgress as any).concepts.find((c: any) => c.conceptId.toString() === conceptId);
     const MASTERY_THRESHOLD = 0.7;
     
     // --- Achievement logic ---
@@ -208,7 +208,7 @@ export const submitQuiz = async (req: Request, res: Response): Promise<void> => 
         masteredAt: masteryIncrement >= MASTERY_THRESHOLD ? new Date() : undefined,
         achievements,
       };
-      userProgress.concepts.push(newConcept);
+      (userProgress as any).concepts.push(newConcept);
     }
     
     await userProgress.save();

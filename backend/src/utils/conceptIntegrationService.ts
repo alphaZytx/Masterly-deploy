@@ -32,8 +32,14 @@ export class ConceptIntegrationService {
     try {
       // Get all existing DSA concepts
       const dsaConcepts = await Concept.find({
-        category: { $regex: /dsa|data.*structure|algorithm/i }
-      }).sort({ order: 1 });
+        // category: { $regex: /dsa|data.*structure|algorithm/i }
+        // The Concept schema does not have category, so filter by title/description
+        $or: [
+          { title: { $regex: /dsa|data.*structure|algorithm|array|string|linked list|stack|queue|tree|graph|dynamic programming/i } },
+          { description: { $regex: /dsa|data.*structure|algorithm|array|string|linked list|stack|queue|tree|graph|dynamic programming/i } }
+        ]
+      });
+      // .sort({ order: 1 }); // No order field in schema
 
       // Group concepts by topics
       const topics: TopicWithReferences[] = [
@@ -101,8 +107,10 @@ export class ConceptIntegrationService {
             conceptId: concept._id,
             order: index + 1,
             isRequired: true,
-            estimatedTime: `${Math.ceil(concept.estLearningTimeHours || 1)}h`,
-            difficulty: this.mapComplexityToDifficulty(concept.complexity || 3)
+            // No estLearningTimeHours in schema, fallback to 1
+            estimatedTime: `1h`,
+            // No complexity in schema, fallback to 'Medium'
+            difficulty: 'Medium'
           });
         }
       });

@@ -174,37 +174,22 @@ export class CourseStatsCalculator {
       let totalDuration = 0;
 
       concepts.forEach(concept => {
-        // Count videos (from contentBlocks or other video fields)
-        if (concept.contentBlocks) {
-          const videoBlocks = concept.contentBlocks.filter((block: any) => 
-            block.type === 'video'
-          );
-          totalVideos += videoBlocks.length;
-        }
+        // Count videos (no contentBlocks in schema, so fallback to 0)
+        // totalVideos += 0;
 
-        // Count articles (from contentBlocks or articleContent)
-        if (concept.articleContent && concept.articleContent.levels) {
-          concept.articleContent.levels.forEach((level: any) => {
-            if (level.sections) {
-              totalArticles += level.sections.length;
-            }
-          });
-        }
+        // Count articles (no articleContent in schema, so fallback to 0)
+        // totalArticles += 0;
 
-        // Count problems (from Test_Questions or other problem fields)
-        if (concept.Test_Questions) {
-          totalProblems += concept.Test_Questions.length;
-        }
+        // Count problems (no Test_Questions in schema, so fallback to 0)
+        // totalProblems += 0;
 
-        // Count quizzes (if concept has quiz field)
-        if (concept.quiz && concept.quiz.length > 0) {
+        // Count quizzes (if concept has quiz.questions array)
+        if (concept.quiz && Array.isArray(concept.quiz.questions) && concept.quiz.questions.length > 0) {
           totalQuizzes += 1;
         }
 
-        // Calculate total duration from estimated learning time
-        // if (concept.Est_Learning_Time_Hours) {
-        //   totalDuration += concept.Est_Learning_Time_Hours;
-        // }
+        // Calculate total duration from estimated learning time (not in schema, fallback to 0)
+        // totalDuration += 0;
       });
 
       return {

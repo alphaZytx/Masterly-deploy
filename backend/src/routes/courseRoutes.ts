@@ -4,10 +4,9 @@ import Course from '../models/courseModel';
 import UserProgress from '../models/userProgressModel';
 import User, { IUser } from '../models/userModel';
 import { authenticateToken, optionalAuth } from '../middlewares/authMiddleware';
-import { ICourse } from '../types';
 
 // Extend course object to include user enrollment
-interface CourseWithEnrollment extends ICourse {
+interface CourseWithEnrollment extends Record<string, any> {
   userEnrollment?: {
     enrolled: boolean;
     progress: number;

@@ -9,9 +9,6 @@ export { default as UserConceptProgress } from './userConceptProgress';
 export { default as SystemLog } from './systemLogModel';
 export { default as EmergencyContact } from './emergencyContactModel';
 
-// Export types
+// Export types that actually exist
 export type { IUser } from './userModel';
-export type { ICourse } from './courseModel';
-export type { ILearningPath } from './learningPathModel';
-export type { IUserNodeProgress } from './userNodeProgress';
-export type { IUserConceptProgress, IConceptProgress } from './userConceptProgress'; 
+export type { ILearningPath } from './learningPathModel'; 
