@@ -196,11 +196,12 @@ export class ConceptIntegrationService {
         message: "DSA course created successfully with existing concepts"
       };
 
-    } catch (error) {
-      console.error("Error creating DSA course:", error);
+    } catch (error: unknown) {
+      const errMsg = (error as Error).message || String(error);
+      console.error(errMsg);
       return {
         success: false,
-        error: error.message
+        error: errMsg
       };
     }
   }
@@ -238,14 +239,14 @@ export class ConceptIntegrationService {
       const course = await Course.findById(topicId);
       if (!course) return [];
 
-      const topic = course.topics.find(t => t._id.toString() === topicId);
+      const topic = (course as any).topics.find(t => t._id.toString() === topicId);
       if (!topic || !topic.useReferencedConcepts) return [];
 
-      const conceptIds = topic.conceptReferences.map(ref => ref.conceptId);
+      const conceptIds = (topic as any).conceptReferences.map(ref => ref.conceptId);
       const concepts = await Concept.find({ _id: { $in: conceptIds } });
 
       // Merge concept data with reference data
-      return topic.conceptReferences.map(ref => {
+      return (topic as any).conceptReferences.map(ref => {
         const concept = concepts.find(c => c._id.toString() === ref.conceptId.toString());
         return {
           ...concept?.toObject(),
@@ -258,8 +259,9 @@ export class ConceptIntegrationService {
         };
       }).sort((a, b) => a.order - b.order);
 
-    } catch (error) {
-      console.error("Error getting concepts for topic:", error);
+    } catch (error: unknown) {
+      const errMsg = (error as Error).message || String(error);
+      console.error(errMsg);
       return [];
     }
   }
@@ -274,8 +276,9 @@ export class ConceptIntegrationService {
         .sort({ category: 1, title: 1 });
 
       return concepts;
-    } catch (error) {
-      console.error("Error getting available concepts:", error);
+    } catch (error: unknown) {
+      const errMsg = (error as Error).message || String(error);
+      console.error(errMsg);
       return [];
     }
   }
