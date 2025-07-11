@@ -96,6 +96,11 @@ export default function Dashboard() {
         return <div className="min-h-screen flex items-center justify-center">Loading Dashboard...</div>;
     }
 
+    // --- Fallback if user is not loaded after signup (to redirect to login or show a message) ---
+    if ((!user && !authLoading) || error) {
+        return <div className="min-h-screen flex items-center justify-center text-red-500">Unable to load user data. Please log in again.</div>;
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
             {/* Header */}

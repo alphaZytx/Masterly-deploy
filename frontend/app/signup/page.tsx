@@ -80,7 +80,8 @@ export default function SignupPage() {
                 email: formData.email,
                 password: formData.password,
             });
-            router.push("/dashboard");
+            // Force a full page reload to ensure cookies and auth context are set
+            window.location.href = "/dashboard";
         } catch (err: any) {
             setError(err.response?.data?.message || "Registration failed. Please try again.");
         } finally {
