@@ -18,8 +18,7 @@ export const getDashboard = async (req: Request, res: Response) => {
         }
 
         // Get user progress for stats
-        const userProgress = await UserConceptProgress.findOne({ userId: user._id });
-        const userConceptProgressArr = userProgress ? userProgress.concepts : [];
+        const userConceptProgressArr = await UserConceptProgress.find({ userId: user._id });
         const conceptsMastered = userConceptProgressArr.filter((c: any) => c.mastered).length;
         const coursesEnrolled = user.enrollments ? user.enrollments.length : 0;
         const totalStudyTime = user.stats?.totalStudyTime || 0;
@@ -133,9 +132,9 @@ export const getUserProgress = async (req: Request, res: Response) => {
             return res.status(403).json({ message: 'Not authorized to access this user\'s progress' });
         }
 
-        const userProgress = await UserConceptProgress.findOne({ userId: targetUserId });
-        const userConceptProgressArr = userProgress ? userProgress.concepts : [];
-        if (!userProgress) {
+        const userProgress = await UserConceptProgress.find({ userId: targetUserId });
+        const userConceptProgressArr = userProgress;
+        if (!userProgress || userProgress.length === 0) {
             return res.status(200).json([]);
         }
 
