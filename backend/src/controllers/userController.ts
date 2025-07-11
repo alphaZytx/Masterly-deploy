@@ -500,26 +500,19 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
         // --- Courses Enrolled ---
         let coursesEnrolled = 0;
         let coursesEnrolledChange = 0;
-        const userFull = await User.findById(userId).select('learningPath');
-        if (userFull && userFull.learningPath && Array.isArray(userFull.learningPath.generatedPath)) {
-            coursesEnrolled = userFull.learningPath.generatedPath.length;
+        const userFull = await User.findById(userId).select('learningPaths');
+        if (userFull && Array.isArray(userFull.learningPaths)) {
+            coursesEnrolled = userFull.learningPaths.length;
             // Calculate how many were added this month
             const now = new Date();
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-            coursesEnrolledChange = userFull.learningPath.generatedPath.filter((course: any) => {
-                if (course && course.savedAt) {
-                    const savedAtDate = new Date(course.savedAt);
-                    return savedAtDate >= monthStart;
+            coursesEnrolledChange = userFull.learningPaths.filter((lp: any) => {
+                if (lp && lp.startedAt) {
+                    const startedAtDate = new Date(lp.startedAt);
+                    return startedAtDate >= monthStart;
                 }
                 return false;
             }).length;
-            // Fallback: if no savedAt in generatedPath, use learningPath.savedAt for the whole array
-            if (coursesEnrolledChange === 0 && userFull.learningPath.savedAt && userFull.learningPath.generatedPath.length > 0) {
-                const savedAtDate = new Date(userFull.learningPath.savedAt);
-                if (savedAtDate >= monthStart) {
-                    coursesEnrolledChange = userFull.learningPath.generatedPath.length;
-                }
-            }
         }
 
         // --- Recent Achievements ---
