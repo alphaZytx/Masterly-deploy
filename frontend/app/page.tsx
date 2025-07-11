@@ -127,7 +127,6 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center space-x-8">
             <NavLink href="#courses">Courses</NavLink>
             <NavLink href="#features">Features</NavLink>
-            <NavLink href="#pricing">Pricing</NavLink>
             
             <ThemeToggle />
 
@@ -531,25 +530,30 @@ const UserDropdown = ({ user, onLogout }: { user: any, onLogout: () => void }) =
 
 // Component for authentication buttons
 const AuthButtons = () => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="outline">
-        Sign In
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent className="w-48" align="end">
-      <DropdownMenuItem asChild>
-        <Link href="/login" className="flex items-center w-full">
-          <User className="mr-2 h-4 w-4" />
-          User Login
-        </Link>
-      </DropdownMenuItem>
-      <DropdownMenuItem asChild>
-        <Link href="/admin/login" className="flex items-center w-full">
-          <Shield className="mr-2 h-4 w-4" />
-          Admin Login
-        </Link>
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
+  <div className="flex items-center space-x-2">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline">
+          Sign In
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-48" align="end">
+        <DropdownMenuItem asChild>
+          <Link href="/login" className="flex items-center w-full">
+            <User className="mr-2 h-4 w-4" />
+            User Login
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/admin/login" className="flex items-center w-full">
+            <Shield className="mr-2 h-4 w-4" />
+            Admin Login
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    <Button asChild variant="default">
+      <Link href="/signup">Sign Up</Link>
+    </Button>
+  </div>
 )
