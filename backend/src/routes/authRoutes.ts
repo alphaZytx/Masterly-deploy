@@ -38,6 +38,24 @@ router.put('/changepassword', protect, changePasswordRules(), validate, changePa
 router.post('/forgot-password', forgotPasswordRules(), validate, forgotPassword);
 router.put('/reset-password/:resetToken', resetPasswordRules(), validate, resetPassword);
 
+// Common logout route for both user and admin
+router.post('/logout-all', (req, res) => {
+    res.cookie('token', '', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        expires: new Date(0),
+        path: '/',
+    });
+    res.cookie('admin_token', '', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        expires: new Date(0),
+        path: '/',
+    });
+    res.status(200).json({ message: 'Logged out from all sessions' });
+});
 
 // --- Existing OAuth Routes ---
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));

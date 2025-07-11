@@ -33,10 +33,13 @@ export default function LandingPage() {
 
   const handleLogout = async () => {
     try {
-      await logout()
-      router.refresh()
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout-all`, {
+        method: "POST",
+        credentials: "include",
+      });
+      window.location.href = "/";
     } catch (error) {
-      console.error("Logout error:", error)
+      console.error("Logout error:", error);
     }
   }
 

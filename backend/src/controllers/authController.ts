@@ -270,7 +270,13 @@ export const loginUser = async (req: Request, res: Response) => {
 };
 
 export const logoutUser = (req: Request, res: Response) => {
-    res.cookie('token', '', { httpOnly: true, expires: new Date(0), sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+    res.cookie('token', '', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        expires: new Date(0),
+        path: '/',
+    });
     res.status(200).json({ message: 'Logout successful' });
 };
 

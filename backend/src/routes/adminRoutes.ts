@@ -303,12 +303,14 @@ router.delete('/todos/:index', async (req, res) => {
 });
 
 // Logout route: clears the admin_token cookie
+// In backend/src/routes/adminRoutes.ts
 router.post('/logout', (req, res) => {
-    res.clearCookie('admin_token', {
+    res.cookie('admin_token', '', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/', // ensure path matches cookie set path
+        secure: true,
+        sameSite: 'none',
+        expires: new Date(0),
+        path: '/',
     });
     res.status(200).json({ message: "Logged out successfully" });
 });

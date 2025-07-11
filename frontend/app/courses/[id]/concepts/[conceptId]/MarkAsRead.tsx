@@ -17,6 +17,7 @@ export default function MarkAsRead({ contentRead, setContentRead, videoRead, set
   const markContentRead = async () => {
     setLoading(true);
     await fetch(`/api/learning/concepts/${conceptId}/progress`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'mark_description_read', courseId }),
@@ -29,6 +30,7 @@ export default function MarkAsRead({ contentRead, setContentRead, videoRead, set
   const markVideoRead = async () => {
     setLoading(true);
     await fetch(`/api/learning/concepts/${conceptId}/progress`, {
+      credentials: 'include',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'mark_video_watched', courseId }),
