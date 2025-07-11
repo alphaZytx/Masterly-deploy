@@ -33,7 +33,7 @@ export default function LandingPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout-all`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://masterly-deploy.onrender.com/api'}/auth/logout-all`, {
         method: "POST",
         credentials: "include",
       });

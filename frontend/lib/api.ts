@@ -38,7 +38,12 @@ export interface RecommendationResponse {
   }>
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://masterly-deploy.onrender.com/api'
+
+// Add validation to ensure API_BASE_URL is available
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  console.warn('NEXT_PUBLIC_API_URL is not set, using fallback URL:', API_BASE_URL)
+}
 
 export interface AuthResponse {
   success: boolean

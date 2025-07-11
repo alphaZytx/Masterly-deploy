@@ -161,12 +161,20 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          // Add timeout to prevent hanging
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+          
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://masterly-deploy.onrender.com/api'}/auth/me`, {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
+            signal: controller.signal
           })
+          
+          clearTimeout(timeoutId)
+          
           if (response.ok) {
             const data = await response.json()
             if (data.success && data.data?.user) {
@@ -184,6 +192,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
           })
         } catch (error: any) {
+          console.error('Auth check failed:', error)
           set({
             user: null,
             isAuthenticated: false,

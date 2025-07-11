@@ -29,7 +29,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // A helper instance of Axios
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://masterly-deploy.onrender.com/api',
     withCredentials: true,
 });
 
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             try {
                 // Ensure API URL is defined and reachable
                 if (!process.env.NEXT_PUBLIC_API_URL) {
-                    throw new Error('NEXT_PUBLIC_API_URL is not defined');
+                    console.warn('NEXT_PUBLIC_API_URL is not defined, using fallback URL');
                 }
                 const response = await api.get('/auth/me');
                 console.log('Auth check response:', response.data);
@@ -56,9 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
             } catch (error: any) {
                 // Improved error logging for network errors
-                if (error.message === 'NEXT_PUBLIC_API_URL is not defined') {
-                    console.error('Environment variable NEXT_PUBLIC_API_URL is missing.');
-                } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+                if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
                     console.error('Network error: Could not reach backend API. Is your backend running and CORS configured?');
                 } else {
                     console.error('Auth check error:', error);

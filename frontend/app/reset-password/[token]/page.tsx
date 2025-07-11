@@ -16,7 +16,7 @@ import axios from "axios"
 
 // A helper instance of Axios configured to talk to our backend
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://masterly-deploy.onrender.com/api',
   withCredentials: true,
 });
 

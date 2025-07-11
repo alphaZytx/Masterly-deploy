@@ -131,7 +131,7 @@ export default function SignupPage() {
   }
 
   const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL }/auth/google`
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'https://masterly-deploy.onrender.com/api'}/auth/google`
   }
 
   // Show loading state while signing up
