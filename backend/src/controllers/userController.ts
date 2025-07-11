@@ -412,189 +412,190 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
                     difficulty: conceptDoc && (conceptDoc.title || 'Unknown') ? (conceptDoc.title || 'Unknown').toLowerCase().includes('dsa') || (conceptDoc.title || 'Unknown').toLowerCase().includes('array') || (conceptDoc.title || 'Unknown').toLowerCase().includes('string') || (conceptDoc.title || 'Unknown').toLowerCase().includes('tree') || (conceptDoc.title || 'Unknown').toLowerCase().includes('graph') || (conceptDoc.title || 'Unknown').toLowerCase().includes('linked list') ? 'DSA' : 'Unknown' : 'Unknown',
                 };
             });
+        }
 
-            // --- Current Course Progress ---
-            let currentCourseProgress: { courseName: string, progress: number, concepts: string, nextTopic: string }[] = [];
-            if (userProgress && userConceptProgressArr.length > 0) {
-                const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
-                const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
-                const courseMap: Record<string, { total: number, completed: number, concepts: { title: string, mastered: boolean }[] }> = {};
-                userConceptProgressArr.forEach((c: any) => {
-                    const doc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
-                    const course = doc && (doc.title || 'Unknown') ? (doc.title || 'Unknown').toLowerCase().includes('dsa') || (doc.title || 'Unknown').toLowerCase().includes('array') || (doc.title || 'Unknown').toLowerCase().includes('string') || (doc.title || 'Unknown').toLowerCase().includes('tree') || (doc.title || 'Unknown').toLowerCase().includes('graph') || (doc.title || 'Unknown').toLowerCase().includes('linked list') ? 'DSA' : 'Uncategorized' : 'Uncategorized';
-                    if (!courseMap[course]) courseMap[course] = { total: 0, completed: 0, concepts: [] };
-                    courseMap[course].total += 1;
-                    if (c.mastered) courseMap[course].completed += 1;
-                    courseMap[course].concepts.push({ title: doc ? doc.title : 'Unknown', mastered: !!c.mastered });
-                });
-                currentCourseProgress = Object.entries(courseMap).map(([courseName, data]) => {
-                    const next = data.concepts.find((c: any) => !c.mastered);
-                    return {
-                        courseName,
-                        progress: Math.round((data.completed / data.total) * 100),
-                        concepts: `${data.completed}/${data.total}`,
-                        nextTopic: next ? next.title : 'All mastered',
-                    };
-                }).filter((course: any) => course.progress > 0 && course.progress < 100);
-            }
+        // --- Current Course Progress ---
+        let currentCourseProgress: { courseName: string, progress: number, concepts: string, nextTopic: string }[] = [];
+        if (userProgress && userConceptProgressArr.length > 0) {
+            const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
+            const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
+            const courseMap: Record<string, { total: number, completed: number, concepts: { title: string, mastered: boolean }[] }> = {};
+            userConceptProgressArr.forEach((c: any) => {
+                const doc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
+                const course = doc && (doc.title || 'Unknown') ? (doc.title || 'Unknown').toLowerCase().includes('dsa') || (doc.title || 'Unknown').toLowerCase().includes('array') || (doc.title || 'Unknown').toLowerCase().includes('string') || (doc.title || 'Unknown').toLowerCase().includes('tree') || (doc.title || 'Unknown').toLowerCase().includes('graph') || (doc.title || 'Unknown').toLowerCase().includes('linked list') ? 'DSA' : 'Uncategorized' : 'Uncategorized';
+                if (!courseMap[course]) courseMap[course] = { total: 0, completed: 0, concepts: [] };
+                courseMap[course].total += 1;
+                if (c.mastered) courseMap[course].completed += 1;
+                courseMap[course].concepts.push({ title: doc ? doc.title : 'Unknown', mastered: !!c.mastered });
+            });
+            currentCourseProgress = Object.entries(courseMap).map(([courseName, data]) => {
+                const next = data.concepts.find((c: any) => !c.mastered);
+                return {
+                    courseName,
+                    progress: Math.round((data.completed / data.total) * 100),
+                    concepts: `${data.completed}/${data.total}`,
+                    nextTopic: next ? next.title : 'All mastered',
+                };
+            }).filter((course: any) => course.progress > 0 && course.progress < 100);
+        }
 
-            // --- Performance Analysis (Radar Chart) ---
-            let performanceAnalysis: { subject: string, value: number }[] = [];
-            if (userProgress && userConceptProgressArr.length > 0) {
-                const scores = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => (typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100);
-                const attempts = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => c.attempts);
-                const avgScore = scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : 0;
-                const avgAttempts = attempts.length > 0 ? attempts.reduce((a: number, b: number) => a + b, 0) / attempts.length : 0;
-                performanceAnalysis = [
-                    { subject: 'Problem Solving', value: Math.round(avgScore) },
-                    { subject: 'Code Quality', value: Math.round(avgScore * 0.9) },
-                    { subject: 'Speed', value: Math.round(100 - Math.min(avgAttempts * 10, 100)) },
-                    { subject: 'Debugging', value: Math.round(avgScore * 0.85) },
-                    { subject: 'Testing', value: Math.round(avgScore * 0.8) },
-                    { subject: 'Documentation', value: Math.round(avgScore * 0.75) },
+        // --- Performance Analysis (Radar Chart) ---
+        let performanceAnalysis: { subject: string, value: number }[] = [];
+        if (userProgress && userConceptProgressArr.length > 0) {
+            const scores = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => (typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100);
+            const attempts = userConceptProgressArr.filter((c: any) => c.attempts > 0).map((c: any) => c.attempts);
+            const avgScore = scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : 0;
+            const avgAttempts = attempts.length > 0 ? attempts.reduce((a: number, b: number) => a + b, 0) / attempts.length : 0;
+            performanceAnalysis = [
+                { subject: 'Problem Solving', value: Math.round(avgScore) },
+                { subject: 'Code Quality', value: Math.round(avgScore * 0.9) },
+                { subject: 'Speed', value: Math.round(100 - Math.min(avgAttempts * 10, 100)) },
+                { subject: 'Debugging', value: Math.round(avgScore * 0.85) },
+                { subject: 'Testing', value: Math.round(avgScore * 0.8) },
+                { subject: 'Documentation', value: Math.round(avgScore * 0.75) },
+            ];
+        }
+
+        // --- Skill Proficiency (Pie/Bar Chart) ---
+        let skillProficiency: { name: string, value: number, color: string }[] = [];
+        if (userProgress && userConceptProgressArr.length > 0) {
+            const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
+            const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
+            const typeMap: Record<string, { scores: number[] }> = {};
+            userConceptProgressArr.forEach((c: any) => {
+                const doc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
+                const type = 'Other';
+                if (!typeMap[type]) typeMap[type] = { scores: [] };
+                if (c.attempts > 0) typeMap[type].scores.push((typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100);
+            });
+            const palette = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6366f1", "#f472b6", "#22d3ee", "#a3e635", "#facc15"];
+            let colorIdx = 0;
+            skillProficiency = Object.entries(typeMap).map(([name, data]) => {
+                const value = data.scores.length > 0 ? Math.round(data.scores.reduce((a: number, b: number) => a + b, 0) / data.scores.length) : 0;
+                const color = palette[colorIdx % palette.length];
+                colorIdx++;
+                return { name, value, color };
+            });
+        }
+
+        // --- Recommended Focus Areas ---
+        let recommendedFocusAreas: { name: string, priority: string }[] = [];
+        if (userProgress && userConceptProgressArr.length > 0) {
+            const notMasteredZeroScore = userConceptProgressArr.filter((c: any) => !c.mastered && (!c.score || c.score === 0));
+            const conceptIds = notMasteredZeroScore.map((c: any) => c.conceptId);
+            const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
+            const priorities = ["High", "Medium", "Low"];
+            recommendedFocusAreas = conceptDocs.slice(0, 3).map((c: any, idx: number) => ({ name: c.title || 'Unknown', priority: priorities[idx] || "Low" }));
+        }
+
+        // --- Courses Enrolled ---
+        let coursesEnrolled = 0;
+        let coursesEnrolledChange = 0;
+        const userFull = await User.findById(userId).select('learningPaths');
+        if (userFull && Array.isArray(userFull.learningPaths)) {
+            coursesEnrolled = userFull.learningPaths.length;
+            const now = new Date();
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            coursesEnrolledChange = userFull.learningPaths.filter((lp: any) => {
+                if (lp && lp.startedAt) {
+                    const startedAtDate = new Date(lp.startedAt);
+                    return startedAtDate >= monthStart;
+                }
+                return false;
+            }).length;
+        }
+
+        // --- Recent Achievements ---
+        let recentAchievements: { concept: string, achievement: string, date: string }[] = [];
+        if (userProgress && userConceptProgressArr.length > 0) {
+            const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
+            const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
+            let allAchievements: { concept: string, achievement: string, date: Date }[] = [];
+            userConceptProgressArr.forEach((c: any) => {
+                if (c.achievements && c.achievements.length > 0) {
+                    const conceptDoc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
+                    c.achievements.forEach((a: any) => {
+                        allAchievements.push({
+                            concept: conceptDoc ? conceptDoc.title || 'Unknown' : 'Unknown',
+                            achievement: a,
+                            date: c.lastUpdated || new Date()
+                        });
+                    });
+                }
+            });
+            recentAchievements = allAchievements.sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 5).map((a: any) => ({
+                concept: a.concept,
+                achievement: a.achievement,
+                date: a.date.toLocaleDateString()
+            }));
+        }
+
+        // --- Upcoming DSA Tests (Demo logic) ---
+        let upcomingDSATests: { title: string, date: string, duration: string }[] = [];
+        if (userProgress && userConceptProgressArr.length > 0) {
+            const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
+            const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
+            const dsaConcepts = conceptDocs.filter((c: any) => {
+                const title = (c.title || '').toLowerCase();
+                return title.includes('dsa') || title.includes('array') || title.includes('string') || title.includes('tree') || title.includes('graph') || title.includes('linked list');
+            });
+            if (dsaConcepts.length > 0) {
+                const now = new Date();
+                upcomingDSATests = [
+                    {
+                        title: 'DSA Mock Test #1',
+                        date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toLocaleDateString(),
+                        duration: '90 min'
+                    },
+                    {
+                        title: 'DSA Mock Test #2',
+                        date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toLocaleDateString(),
+                        duration: '90 min'
+                    }
                 ];
             }
-
-            // --- Skill Proficiency (Pie/Bar Chart) ---
-            let skillProficiency: { name: string, value: number, color: string }[] = [];
-            if (userProgress && userConceptProgressArr.length > 0) {
-                const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
-                const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
-                const typeMap: Record<string, { scores: number[] }> = {};
-                userConceptProgressArr.forEach((c: any) => {
-                    const doc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
-                    const type = 'Other';
-                    if (!typeMap[type]) typeMap[type] = { scores: [] };
-                    if (c.attempts > 0) typeMap[type].scores.push((typeof c.masteryScore === 'number' ? Math.max(0, Math.min(1, c.masteryScore / 100)) : 0) * 100);
-                });
-                const palette = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6366f1", "#f472b6", "#22d3ee", "#a3e635", "#facc15"];
-                let colorIdx = 0;
-                skillProficiency = Object.entries(typeMap).map(([name, data]) => {
-                    const value = data.scores.length > 0 ? Math.round(data.scores.reduce((a: number, b: number) => a + b, 0) / data.scores.length) : 0;
-                    const color = palette[colorIdx % palette.length];
-                    colorIdx++;
-                    return { name, value, color };
-                });
-            }
-
-            // --- Recommended Focus Areas ---
-            let recommendedFocusAreas: { name: string, priority: string }[] = [];
-            if (userProgress && userConceptProgressArr.length > 0) {
-                const notMasteredZeroScore = userConceptProgressArr.filter((c: any) => !c.mastered && (!c.score || c.score === 0));
-                const conceptIds = notMasteredZeroScore.map((c: any) => c.conceptId);
-                const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
-                const priorities = ["High", "Medium", "Low"];
-                recommendedFocusAreas = conceptDocs.slice(0, 3).map((c: any, idx: number) => ({ name: c.title || 'Unknown', priority: priorities[idx] || "Low" }));
-            }
-
-            // --- Courses Enrolled ---
-            let coursesEnrolled = 0;
-            let coursesEnrolledChange = 0;
-            const userFull = await User.findById(userId).select('learningPaths');
-            if (userFull && Array.isArray(userFull.learningPaths)) {
-                coursesEnrolled = userFull.learningPaths.length;
-                const now = new Date();
-                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                coursesEnrolledChange = userFull.learningPaths.filter((lp: any) => {
-                    if (lp && lp.startedAt) {
-                        const startedAtDate = new Date(lp.startedAt);
-                        return startedAtDate >= monthStart;
-                    }
-                    return false;
-                }).length;
-            }
-
-            // --- Recent Achievements ---
-            let recentAchievements: { concept: string, achievement: string, date: string }[] = [];
-            if (userProgress && userConceptProgressArr.length > 0) {
-                const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
-                const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
-                let allAchievements: { concept: string, achievement: string, date: Date }[] = [];
-                userConceptProgressArr.forEach((c: any) => {
-                    if (c.achievements && c.achievements.length > 0) {
-                        const conceptDoc = conceptDocs.find((cd: any) => cd._id.toString() === c.conceptId.toString());
-                        c.achievements.forEach((a: any) => {
-                            allAchievements.push({
-                                concept: conceptDoc ? conceptDoc.title || 'Unknown' : 'Unknown',
-                                achievement: a,
-                                date: c.lastUpdated || new Date()
-                            });
-                        });
-                    }
-                });
-                recentAchievements = allAchievements.sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 5).map((a: any) => ({
-                    concept: a.concept,
-                    achievement: a.achievement,
-                    date: a.date.toLocaleDateString()
-                }));
-            }
-
-            // --- Upcoming DSA Tests (Demo logic) ---
-            let upcomingDSATests: { title: string, date: string, duration: string }[] = [];
-            if (userProgress && userConceptProgressArr.length > 0) {
-                const conceptIds = userConceptProgressArr.map((c: any) => c.conceptId);
-                const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
-                const dsaConcepts = conceptDocs.filter((c: any) => {
-                    const title = (c.title || '').toLowerCase();
-                    return title.includes('dsa') || title.includes('array') || title.includes('string') || title.includes('tree') || title.includes('graph') || title.includes('linked list');
-                });
-                if (dsaConcepts.length > 0) {
-                    const now = new Date();
-                    upcomingDSATests = [
-                        {
-                            title: 'DSA Mock Test #1',
-                            date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toLocaleDateString(),
-                            duration: '90 min'
-                        },
-                        {
-                            title: 'DSA Mock Test #2',
-                            date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toLocaleDateString(),
-                            duration: '90 min'
-                        }
-                    ];
-                }
-            }
-
-            // --- Recommended Learning Path (last generated) ---
-            let recommendedLearningPath: string[] = [];
-            const userFullPath = await User.findById(userId).select('learningPaths');
-            if (userFullPath && userFullPath.learningPaths && Array.isArray(userFullPath.learningPaths) && userFullPath.learningPaths.length > 0) {
-                const ids = userFullPath.learningPaths.filter((c: any) => typeof c === 'string' || (c && c._id)).map((c: any) => typeof c === 'string' ? c : c._id);
-                let titles: string[] = [];
-                if (ids.length > 0) {
-                    const conceptDocs = await Concept.find({ _id: { $in: ids } });
-                    titles = conceptDocs.map((c: any) => c.title);
-                }
-                const objectTitles = userFullPath.learningPaths.filter((c: any) => c && c.title).map((c: any) => c.title);
-                recommendedLearningPath = [...titles, ...objectTitles];
-            }
-
-            res.json({
-                totalStudyTime: Math.round(totalStudyTime),
-                studyTimeThisWeek: Math.round(studyTimeThisWeek),
-                conceptsMasteredTotal,
-                conceptsMasteredThisWeek,
-                quizzesCompletedTotal,
-                quizzesCompletedThisWeek,
-                avgScore,
-                avgScoreMonth,
-                weeklyActivity,
-                monthlyProgress,
-                quizPerformanceTrends,
-                currentCourseProgress,
-                performanceAnalysis,
-                skillProficiency,
-                recommendedFocusAreas,
-                coursesEnrolled,
-                coursesEnrolledChange,
-                recentAchievements,
-                upcomingDSATests,
-                recommendedLearningPath
-            });
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({ message: 'Server Error' });
         }
+
+        // --- Recommended Learning Path (last generated) ---
+        let recommendedLearningPath: string[] = [];
+        const userFullPath = await User.findById(userId).select('learningPaths');
+        if (userFullPath && userFullPath.learningPaths && Array.isArray(userFullPath.learningPaths) && userFullPath.learningPaths.length > 0) {
+            const ids = userFullPath.learningPaths.filter((c: any) => typeof c === 'string' || (c && c._id)).map((c: any) => typeof c === 'string' ? c : c._id);
+            let titles: string[] = [];
+            if (ids.length > 0) {
+                const conceptDocs = await Concept.find({ _id: { $in: ids } });
+                titles = conceptDocs.map((c: any) => c.title);
+            }
+            const objectTitles = userFullPath.learningPaths.filter((c: any) => c && c.title).map((c: any) => c.title);
+            recommendedLearningPath = [...titles, ...objectTitles];
+        }
+
+        res.json({
+            totalStudyTime: Math.round(totalStudyTime),
+            studyTimeThisWeek: Math.round(studyTimeThisWeek),
+            conceptsMasteredTotal,
+            conceptsMasteredThisWeek,
+            quizzesCompletedTotal,
+            quizzesCompletedThisWeek,
+            avgScore,
+            avgScoreMonth,
+            weeklyActivity,
+            monthlyProgress,
+            quizPerformanceTrends,
+            currentCourseProgress,
+            performanceAnalysis,
+            skillProficiency,
+            recommendedFocusAreas,
+            coursesEnrolled,
+            coursesEnrolledChange,
+            recentAchievements,
+            upcomingDSATests,
+            recommendedLearningPath
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
 };
 
 /**
@@ -613,7 +614,10 @@ export const recordStudySession = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Missing date or durationMinutes' });
         }
         const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        // You may want to actually record the session in the DB here, but this preserves your logic.
         await user.save();
         res.status(200).json({ message: 'Study session recorded' });
     } catch (error) {
