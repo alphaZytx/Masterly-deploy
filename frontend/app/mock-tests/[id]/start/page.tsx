@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { CheckCircle, Clock, Code, BookOpen, Play, ArrowLeft, AlertTriangle } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import Quiz, { QuizQuestion } from "@/components/Quiz";
 
 interface Question {
   id: number
@@ -133,6 +134,22 @@ def maxDepth(root):
       },
     ],
   })
+
+  // Split MCQ and coding questions
+  const mcqQuestions: QuizQuestion[] = mockTest.questions
+    .filter((q) => q.type === "mcq")
+    .map((q) => ({
+      id: q.id,
+      question: q.question,
+      options: q.options || [],
+      correct: q.correct,
+      explanation: q.explanation,
+    }));
+  const codingQuestions = mockTest.questions.filter((q) => q.type === "coding");
+
+  const [mcqCompleted, setMcqCompleted] = useState(false);
+  const [mcqScore, setMcqScore] = useState<number | null>(null);
+  const [mcqPassed, setMcqPassed] = useState<boolean | null>(null);
 
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState<{ [key: number]: any }>({})
@@ -305,7 +322,7 @@ def maxDepth(root):
 
             <div className="mt-4">
               <Button variant="outline" asChild>
-                <Link href="/mock-tests" legacyBehavior>
+                <Link href="/mock-tests">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Tests
                 </Link>
@@ -313,6 +330,26 @@ def maxDepth(root):
             </div>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  // Show MCQ quiz first, then coding questions
+  if (!mcqCompleted && mcqQuestions.length > 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <Quiz
+          title="Mock Test - MCQ Section"
+          questions={mcqQuestions}
+          testType="mock_test"
+          passingScore={mockTest.passingScore}
+          onSubmit={(score, passed) => {
+            setMcqCompleted(true);
+            setMcqScore(score);
+            setMcqPassed(passed);
+          }}
+          allowRetake={true}
+        />
       </div>
     );
   }
@@ -355,6 +392,7 @@ def maxDepth(root):
           </div>
         </div>
       </div>
+
       <div className="max-w-6xl mx-auto p-6">
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Question Navigation */}
@@ -454,9 +492,7 @@ def maxDepth(root):
                           This is a coding question. Click the button below to open our coding platform to solve it.
                         </p>
                         <Button asChild>
-                          <Link
-                            href={`/coding-platform?problem=${currentQ.id}&source=mock-test&testId=${testId}`}
-                            legacyBehavior>
+                          <Link href={`/coding-platform?problem=${currentQ.id}&source=mock-test&testId=${testId}`}>
                             <Code className="w-4 h-4 mr-2" />
                             Open Coding Platform
                           </Link>
@@ -502,6 +538,7 @@ def maxDepth(root):
           </div>
         </div>
       </div>
+
       {/* Submit Warning Modal */}
       {showWarning && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -526,5 +563,5 @@ def maxDepth(root):
         </div>
       )}
     </div>
-  );
+  )
 }

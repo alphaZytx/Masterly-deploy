@@ -1,5 +1,3 @@
-"use client"
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, Shield, Eye, EyeOff, AlertTriangle, CheckCircle, XCircle, BarChart3, Trophy, Zap, Target, Brain, Code, Cpu, Database, Search, Layers, Users, Award, TrendingUp, Lock, Unlock, AlertCircle, Play, Pause, RotateCcw, Home, Settings, HelpCircle, Sparkles } from 'lucide-react';
 import { apiService, QuizQuestion, ConceptQuiz } from '@/lib/api';

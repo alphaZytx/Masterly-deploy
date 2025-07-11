@@ -13,4 +13,10 @@ router.use(protect);
  */
 router.get("/:goalConceptId", getRecommendation);
 
+/**
+ * @route POST /api/recommendation/generate
+ * @desc Generate learning path recommendations
+ */
+router.post("/generate", getRecommendation);
+
 export default router;

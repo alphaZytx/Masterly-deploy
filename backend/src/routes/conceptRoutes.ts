@@ -5,13 +5,11 @@ import {
     searchConcepts,
     testConcepts,
     getConceptQuiz,
-    testQuiz,
-    enrollInConcept,
-    getEnrollmentStatus
+    testQuiz
 } from '../controllers/conceptController';
 import { protect } from '../middlewares/authMiddleware';
 import { Request, Response } from 'express';
-import User from '../models/userModel';
+import { User } from '../models/userModel';
 
 const router = Router();
 
@@ -54,7 +52,5 @@ router.get('/', getAllConcepts);
 router.get('/search', searchConcepts);
 router.get('/:id', getConceptById);
 router.get('/:id/quiz', getConceptQuiz);
-router.post('/:id/enroll', enrollInConcept);
-router.get('/:id/enrollment-status', getEnrollmentStatus);
 
 export default router;

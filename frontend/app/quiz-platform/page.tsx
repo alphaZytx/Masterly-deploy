@@ -5,109 +5,185 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, X, Clock, Trophy, RotateCcw, ArrowRight, Target } from "lucide-react"
+import { CheckCircle, X, Clock, Trophy, RotateCcw, ArrowRight, Target, BookOpen, BrainCircuit, TestTube } from "lucide-react"
 import { useSearchParams } from "next/navigation"
+import { apiClient } from "@/lib/api"
+import { useRouter } from "next/navigation"
 
 interface Question {
-  id: number
+  _id: string
   question: string
   options: string[]
-  correct: number
-  explanation: string
-  difficulty: "Easy" | "Medium" | "Hard"
-  topic: string
+  correctAnswer: number
+  explanation?: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  conceptId?: string
+  topic?: string
 }
 
 interface Quiz {
-  id: number
+  id: string
   title: string
   description: string
   timeLimit: number // in seconds
   questions: Question[]
-  topic: string
-  currentMastery: number
-  targetMastery: number
+  topic?: string
+  currentMastery?: number
+  targetMastery?: number
+  courseId?: string
+  testType?: 'course_test' | 'mock_test' | 'concept_quiz'
 }
 
 export default function QuizPlatform() {
   const searchParams = useSearchParams()
   const quizId = searchParams.get("quiz")
   const topicId = searchParams.get("topic")
+  const courseId = searchParams.get("courseId")
+  const testType = searchParams.get("testType") as 'course_test' | 'mock_test' | 'concept_quiz' | null
 
-  const [quiz] = useState<Quiz>({
-    id: 1,
-    title: "Arrays and Strings Mastery Quiz",
-    description: "Test your understanding of arrays and string manipulation concepts",
-    timeLimit: 900, // 15 minutes
-    topic: "Arrays & Strings",
-    currentMastery: 65,
-    targetMastery: 80,
-    questions: [
-      {
-        id: 1,
-        question: "What is the time complexity of accessing an element in an array by index?",
-        options: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
-        correct: 0,
-        explanation:
-          "Array access by index is O(1) because arrays store elements in contiguous memory locations, allowing direct access using the index.",
-        difficulty: "Easy",
-        topic: "Arrays",
-      },
-      {
-        id: 2,
-        question: "Which of the following string methods modifies the original string in JavaScript?",
-        options: ["slice()", "substring()", "replace()", "None of the above"],
-        correct: 3,
-        explanation:
-          "Strings in JavaScript are immutable. All string methods return a new string rather than modifying the original string.",
-        difficulty: "Medium",
-        topic: "Strings",
-      },
-      {
-        id: 3,
-        question: "What is the space complexity of the two-pointer technique for reversing an array in-place?",
-        options: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
-        correct: 0,
-        explanation:
-          "The two-pointer technique uses only a constant amount of extra space regardless of input size, making it O(1) space complexity.",
-        difficulty: "Medium",
-        topic: "Arrays",
-      },
-      {
-        id: 4,
-        question: "Which algorithm is most efficient for finding all anagrams of a pattern in a text?",
-        options: ["Brute Force", "Sliding Window", "Dynamic Programming", "Divide and Conquer"],
-        correct: 1,
-        explanation:
-          "Sliding window technique is most efficient for this problem, maintaining a window of pattern length and comparing character frequencies.",
-        difficulty: "Hard",
-        topic: "Strings",
-      },
-      {
-        id: 5,
-        question: "What happens when you try to access an array element beyond its bounds in Java?",
-        options: ["Returns null", "Returns 0", "Throws ArrayIndexOutOfBoundsException", "Returns undefined"],
-        correct: 2,
-        explanation:
-          "Java throws an ArrayIndexOutOfBoundsException when trying to access an array element with an invalid index.",
-        difficulty: "Easy",
-        topic: "Arrays",
-      },
-    ],
-  })
-
+  const [quiz, setQuiz] = useState<Quiz | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([])
-  const [timeLeft, setTimeLeft] = useState(quiz.timeLimit)
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: number }>({})
+  const [timeLeft, setTimeLeft] = useState(0)
   const [quizStarted, setQuizStarted] = useState(false)
   const [quizCompleted, setQuizCompleted] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [endTime, setEndTime] = useState<Date | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  
+  const router = useRouter()
+
+  useEffect(() => {
+    loadQuiz()
+  }, [quizId, topicId, courseId, testType])
+
+  const loadQuiz = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      let response
+      
+      if (courseId && testType) {
+        // Load course-specific test
+        if (testType === 'course_test') {
+          response = await apiClient.getCourseTestQuestions(courseId)
+        } else if (testType === 'mock_test') {
+          response = await apiClient.getCourseMockTestQuestions(courseId)
+        }
+        
+        if (response?.success) {
+          const quizData: Quiz = {
+            id: courseId,
+            title: testType === 'course_test' ? 'Course Assessment' : 'Mock Test',
+            description: testType === 'course_test' 
+              ? 'Test your knowledge of the entire course material'
+              : 'Practice test with comprehensive questions from all topics',
+            timeLimit: response.data.timeLimit || 3600,
+            questions: response.data.questions,
+            courseId,
+            testType
+          }
+          setQuiz(quizData)
+          setTimeLeft(quizData.timeLimit)
+        } else {
+          setError(response?.message || 'Failed to load test questions')
+        }
+      } else if (quizId) {
+        // Load regular quiz (existing functionality)
+        response = await apiClient.getQuiz(quizId)
+        
+        if (response?.success) {
+          setQuiz(response.data)
+          setTimeLeft(response.data.timeLimit)
+        } else {
+          setError(response?.message || 'Failed to load quiz')
+        }
+      } else if (topicId) {
+        // Load topic-specific quiz
+        response = await apiClient.getTopicQuiz(topicId)
+        
+        if (response?.success) {
+          setQuiz(response.data)
+          setTimeLeft(response.data.timeLimit)
+        } else {
+          setError(response?.message || 'Failed to load topic quiz')
+        }
+      } else {
+        // Default quiz for demo
+        const defaultQuiz: Quiz = {
+          id: "1",
+          title: "Arrays and Strings Mastery Quiz",
+          description: "Test your understanding of arrays and string manipulation concepts",
+          timeLimit: 900, // 15 minutes
+          topic: "Arrays & Strings",
+          currentMastery: 65,
+          targetMastery: 80,
+          questions: [
+            {
+              _id: "1",
+              question: "What is the time complexity of accessing an element in an array by index?",
+              options: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
+              correctAnswer: 0,
+              explanation: "Array access by index is O(1) because arrays store elements in contiguous memory locations, allowing direct access using the index.",
+              difficulty: "easy",
+              topic: "Arrays",
+            },
+            {
+              _id: "2",
+              question: "Which of the following string methods modifies the original string in JavaScript?",
+              options: ["slice()", "substring()", "replace()", "None of the above"],
+              correctAnswer: 3,
+              explanation: "Strings in JavaScript are immutable. All string methods return a new string rather than modifying the original string.",
+              difficulty: "medium",
+              topic: "Strings",
+            },
+            {
+              _id: "3",
+              question: "What is the space complexity of the two-pointer technique for reversing an array in-place?",
+              options: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
+              correctAnswer: 0,
+              explanation: "The two-pointer technique uses only a constant amount of extra space regardless of input size, making it O(1) space complexity.",
+              difficulty: "medium",
+              topic: "Arrays",
+            },
+            {
+              _id: "4",
+              question: "Which algorithm is most efficient for finding all anagrams of a pattern in a text?",
+              options: ["Brute Force", "Sliding Window", "Dynamic Programming", "Divide and Conquer"],
+              correctAnswer: 1,
+              explanation: "Sliding window technique is most efficient for this problem, maintaining a window of pattern length and comparing character frequencies.",
+              difficulty: "hard",
+              topic: "Strings",
+            },
+            {
+              _id: "5",
+              question: "What happens when you try to access an array element beyond its bounds in Java?",
+              options: ["Returns null", "Returns 0", "Throws ArrayIndexOutOfBoundsException", "Returns undefined"],
+              correctAnswer: 2,
+              explanation: "Java throws an ArrayIndexOutOfBoundsException when trying to access an array element with an invalid index.",
+              difficulty: "easy",
+              topic: "Arrays",
+            },
+          ],
+        }
+        setQuiz(defaultQuiz)
+        setTimeLeft(defaultQuiz.timeLimit)
+      }
+    } catch (err) {
+      console.error('Error loading quiz:', err)
+      setError('Failed to load quiz data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Timer effect
   useEffect(() => {
-    if (quizStarted && !quizCompleted && timeLeft > 0) {
+    if (quizStarted && !quizCompleted && timeLeft > 0 && quiz) {
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -120,11 +196,16 @@ export default function QuizPlatform() {
 
       return () => clearInterval(timer)
     }
-  }, [quizStarted, quizCompleted, timeLeft])
+  }, [quizStarted, quizCompleted, timeLeft, quiz])
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
+    const hours = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
+    
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+    }
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
@@ -133,14 +214,15 @@ export default function QuizPlatform() {
     setStartTime(new Date())
   }
 
-  const handleAnswerSelect = (answerIndex: number) => {
-    const newAnswers = [...selectedAnswers]
-    newAnswers[currentQuestion] = answerIndex
-    setSelectedAnswers(newAnswers)
+  const handleAnswerSelect = (questionId: string, answerIndex: number) => {
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [questionId]: answerIndex
+    }))
   }
 
   const nextQuestion = () => {
-    if (currentQuestion < quiz.questions.length - 1) {
+    if (quiz && currentQuestion < quiz.questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1)
     }
   }
@@ -151,22 +233,63 @@ export default function QuizPlatform() {
     }
   }
 
-  const handleQuizComplete = () => {
+  const handleQuizComplete = async () => {
     setQuizCompleted(true)
     setEndTime(new Date())
+    
+    // Submit results to backend
+    if (quiz && (quiz.courseId || quiz.id)) {
+      try {
+        setSubmitting(true)
+        
+        const timeTaken = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 1000) : 0
+        
+        let response
+        if (quiz.courseId && quiz.testType) {
+          // Submit course test results
+          response = await apiClient.submitCourseTest(quiz.courseId, {
+            answers: selectedAnswers,
+            timeSpent: timeTaken,
+            testType: quiz.testType
+          })
+        } else {
+          // Submit regular quiz results
+          response = await apiClient.submitQuiz(quiz.id, {
+            answers: selectedAnswers,
+            timeSpent: timeTaken
+          })
+        }
+        
+        if (response?.success) {
+          // Results will be shown in the UI
+        } else {
+          console.error('Failed to submit results:', response?.message)
+        }
+      } catch (err) {
+        console.error('Error submitting results:', err)
+      } finally {
+        setSubmitting(false)
+      }
+    }
+    
     setShowResults(true)
   }
 
   const calculateResults = () => {
-    const correctAnswers = selectedAnswers.filter((answer, index) => answer === quiz.questions[index]?.correct).length
+    if (!quiz) return null
+    
+    const correctAnswers = quiz.questions.filter((question, index) => 
+      selectedAnswers[question._id] === question.correctAnswer
+    ).length
 
     const totalQuestions = quiz.questions.length
     const percentage = Math.round((correctAnswers / totalQuestions) * 100)
     const timeTaken = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 1000) : 0
 
     // Calculate new mastery score
+    const currentMastery = quiz.currentMastery || 0
     const masteryIncrease = Math.max(0, Math.min(15, percentage - 60)) // 0-15 point increase
-    const newMastery = Math.min(100, quiz.currentMastery + masteryIncrease)
+    const newMastery = Math.min(100, currentMastery + masteryIncrease)
 
     return {
       correctAnswers,
@@ -180,8 +303,10 @@ export default function QuizPlatform() {
 
   const restartQuiz = () => {
     setCurrentQuestion(0)
-    setSelectedAnswers([])
-    setTimeLeft(quiz.timeLimit)
+    setSelectedAnswers({})
+    if (quiz) {
+      setTimeLeft(quiz.timeLimit)
+    }
     setQuizStarted(false)
     setQuizCompleted(false)
     setShowResults(false)
@@ -191,16 +316,59 @@ export default function QuizPlatform() {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "Easy":
+      case "easy":
         return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-      case "Medium":
+      case "medium":
         return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-      case "Hard":
+      case "hard":
         return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
       default:
-        return "bg-gray-100 text-gray-700"
+        return "bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300"
     }
   }
+
+  const goBackToCourse = () => {
+    if (courseId) {
+      router.push(`/courses/${courseId}`)
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="container mx-auto px-4 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-64 bg-gray-200 rounded mb-4"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !quiz) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Error Loading Quiz</h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
+          <Button onClick={goBackToCourse}>
+            Go Back
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const currentQuestionData = quiz.questions[currentQuestion]
+  const answeredQuestions = Object.keys(selectedAnswers).length
+  const answerProgress = (answeredQuestions / quiz.questions.length) * 100
 
   if (!quizStarted) {
     return (
@@ -312,7 +480,7 @@ export default function QuizPlatform() {
                   Retake Quiz
                 </Button>
                 <Button asChild>
-                  <a href={`/courses/${topicId || "arrays"}`}>
+                  <a href={`/courses/${courseId || "arrays"}`}>
                     Continue Learning
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </a>
@@ -328,11 +496,11 @@ export default function QuizPlatform() {
             </CardHeader>
             <CardContent className="space-y-4">
               {quiz.questions.map((question, index) => {
-                const userAnswer = selectedAnswers[index]
-                const isCorrect = userAnswer === question.correct
+                const userAnswer = selectedAnswers[question._id]
+                const isCorrect = userAnswer === question.correctAnswer
 
                 return (
-                  <div key={question.id} className="border dark:border-gray-700 rounded-lg p-4">
+                  <div key={question._id} className="border dark:border-gray-700 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
@@ -356,7 +524,7 @@ export default function QuizPlatform() {
                         <div
                           key={optionIndex}
                           className={`p-2 rounded border text-sm ${
-                            optionIndex === question.correct
+                            optionIndex === question.correctAnswer
                               ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300"
                               : optionIndex === userAnswer && !isCorrect
                                 ? "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
@@ -366,7 +534,7 @@ export default function QuizPlatform() {
                           <div className="flex items-center space-x-2">
                             <span className="font-medium">{String.fromCharCode(65 + optionIndex)}.</span>
                             <span>{option}</span>
-                            {optionIndex === question.correct && (
+                            {optionIndex === question.correctAnswer && (
                               <CheckCircle className="w-4 h-4 text-green-600 ml-auto" />
                             )}
                             {optionIndex === userAnswer && !isCorrect && <X className="w-4 h-4 text-red-600 ml-auto" />}
@@ -390,7 +558,7 @@ export default function QuizPlatform() {
   }
 
   const currentQ = quiz.questions[currentQuestion]
-  const progress = ((currentQuestion + 1) / quiz.questions.length) * 100
+  const questionProgress = ((currentQuestion + 1) / quiz.questions.length) * 100
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -418,7 +586,7 @@ export default function QuizPlatform() {
         </div>
 
         <div className="mt-4">
-          <Progress value={progress} className="h-2" />
+          <Progress value={questionProgress} className="h-2" />
         </div>
       </div>
 
@@ -431,7 +599,7 @@ export default function QuizPlatform() {
                 <Badge variant="outline">{currentQ.topic}</Badge>
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300">
-                {selectedAnswers.filter((a) => a !== undefined).length} / {quiz.questions.length} answered
+                {answeredQuestions} / {quiz.questions.length} answered
               </div>
             </div>
           </CardHeader>
@@ -444,9 +612,9 @@ export default function QuizPlatform() {
                 {currentQ.options.map((option, index) => (
                   <button
                     key={index}
-                    onClick={() => handleAnswerSelect(index)}
+                    onClick={() => handleAnswerSelect(currentQ._id, index)}
                     className={`w-full p-4 text-left rounded-lg border transition-all ${
-                      selectedAnswers[currentQuestion] === index
+                      selectedAnswers[currentQ._id] === index
                         ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400"
                         : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     }`}
@@ -454,12 +622,12 @@ export default function QuizPlatform() {
                     <div className="flex items-center space-x-3">
                       <div
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          selectedAnswers[currentQuestion] === index
+                          selectedAnswers[currentQ._id] === index
                             ? "border-blue-500 bg-blue-500"
                             : "border-gray-300 dark:border-gray-500"
                         }`}
                       >
-                        {selectedAnswers[currentQuestion] === index && (
+                        {selectedAnswers[currentQ._id] === index && (
                           <div className="w-2 h-2 bg-white rounded-full" />
                         )}
                       </div>
@@ -486,7 +654,7 @@ export default function QuizPlatform() {
                     className={`w-8 h-8 rounded text-xs font-medium ${
                       index === currentQuestion
                         ? "bg-blue-600 text-white"
-                        : selectedAnswers[index] !== undefined
+                        : selectedAnswers[quiz.questions[index]._id] !== undefined
                           ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
                           : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     }`}
@@ -497,11 +665,11 @@ export default function QuizPlatform() {
               </div>
 
               {currentQuestion === quiz.questions.length - 1 ? (
-                <Button onClick={handleQuizComplete} disabled={selectedAnswers[currentQuestion] === undefined}>
+                <Button onClick={handleQuizComplete} disabled={selectedAnswers[currentQ._id] === undefined}>
                   Submit Quiz
                 </Button>
               ) : (
-                <Button onClick={nextQuestion} disabled={selectedAnswers[currentQuestion] === undefined}>
+                <Button onClick={nextQuestion} disabled={selectedAnswers[currentQ._id] === undefined}>
                   Next
                 </Button>
               )}

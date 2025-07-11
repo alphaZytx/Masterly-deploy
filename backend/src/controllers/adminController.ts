@@ -72,15 +72,15 @@ export const updateUser = async (req: Request, res: Response) => {
     try {
         const user = await User.findById(req.params.id);
         if (user) {
-            (user as any).name = req.body.name || (user as any).name;
-            (user as any).email = req.body.email || (user as any).email;
-            (user as any).role = req.body.role || (user as any).role;
+            user.name = req.body.name || user.name;
+            user.email = req.body.email || user.email;
+            user.role = req.body.role || user.role;
             const updatedUser = await user.save();
             res.json({
                 _id: updatedUser._id,
-                name: (updatedUser as any).name,
-                email: (updatedUser as any).email,
-                role: (updatedUser as any).role,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                role: updatedUser.role,
             });
         } else {
             res.status(404).json({ message: 'User not found' });
@@ -169,4 +169,65 @@ export const getAllConcepts = async (req: Request, res: Response) => {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
+};
+
+/**
+ * @desc    Get all users with emergency contacts (admin only)
+ * @route   GET /api/admin/emergency-contacts
+ * @access  Private/Admin
+ */
+export const getEmergencyContacts = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
+
+        // Find users who have emergency contact information
+        const [totalUsers, users] = await Promise.all([
+            User.countDocuments({ 'profile.emergencyContact': { $exists: true, $ne: null } }),
+            User.find({ 'profile.emergencyContact': { $exists: true, $ne: null } })
+                .select('email profile.firstName profile.lastName profile.emergencyContact createdAt')
+                .limit(limit)
+                .skip(skip)
+                .sort({ createdAt: -1 })
+        ]);
+
+        // Format the response
+        const formattedUsers = users.map(user => ({
+            _id: user._id,
+            email: user.email,
+            fullName: `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || 'N/A',
+            emergencyContact: user.profile?.emergencyContact,
+            createdAt: user.createdAt
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: formattedUsers.length,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(totalUsers / limit),
+                totalUsers: totalUsers
+            },
+            data: formattedUsers
+        });
+    } catch (error) {
+        console.error('Get emergency contacts error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// GET /api/admin/courses-with-concepts
+export const getCoursesWithConceptTitles = async (req, res) => {
+  try {
+    const courses = await require('../models/courseModel').default.find({}, 'title _id concepts');
+    const result = courses.map(course => ({
+      _id: course._id,
+      title: course.title,
+      concepts: (course.concepts || []).map(c => ({ conceptId: c.conceptId, title: c.title }))
+    }));
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch courses', error: err.message });
+  }
 };

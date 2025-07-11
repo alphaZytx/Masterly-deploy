@@ -1,37 +1,33 @@
+import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/components/auth-provider"
 import { Toaster } from "@/components/toaster"
-
-
-
-// --- This path is now corrected to be relative ---
-import { AuthProvider } from "./context/AuthContext"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-    title: "Masterly - Personalized Learning Platform",
-    description: "Master skills with AI-powered personalized learning paths",
+  title: "EduPlatform - Learn, Grow, Succeed",
+  description: "Master new skills with our comprehensive educational platform",
 }
 
 export default function RootLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode
+  children: React.ReactNode
 }) {
-
-    return (
-        <html lang="en" suppressHydrationWarning>
-            <body className={inter.className}>
-                <AuthProvider>
-                    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-                        {children}
-                        <Toaster />
-                    </ThemeProvider>
-                </AuthProvider>
-            </body>
-        </html>
-    )
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
+      </body>
+    </html>
+  )
 }

@@ -158,7 +158,7 @@ export default function MockTestResults() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Test Results</h1>
             <div className="flex items-center space-x-2">
               <Button variant="outline" size="sm" asChild>
-                <Link href="/mock-tests" legacyBehavior>
+                <Link href="/mock-tests">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Tests
                 </Link>
@@ -221,6 +221,7 @@ export default function MockTestResults() {
           </div>
         </div>
       </div>
+
       <div className="max-w-7xl mx-auto p-6">
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Performance Analysis */}
@@ -440,5 +441,5 @@ export default function MockTestResults() {
         </div>
       </div>
     </div>
-  );
+  )
 }

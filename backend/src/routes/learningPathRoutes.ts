@@ -1,5 +1,5 @@
 import express from "express";
-import { saveLearningPath, getLearningPath } from "../controllers/learningPathController";
+import { LearningPathController } from "../controllers/learningPathController";
 import { protect } from "../middlewares/authMiddleware";
 
 const router = express.Router();
@@ -11,12 +11,12 @@ router.use(protect);
  * @route POST /api/learning-path/save
  * @desc Save user's learning path
  */
-router.post("/save", saveLearningPath);
+router.post("/save", LearningPathController.createLearningPath);
 
 /**
  * @route GET /api/learning-path/get
  * @desc Get user's saved learning path
  */
-router.get("/get", getLearningPath);
+router.get("/get", LearningPathController.getLearningPath);
 
 export default router; 

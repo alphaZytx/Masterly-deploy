@@ -50,3 +50,6 @@ coverage/
 # Optional files
 .npm
 .eslintcache
+
+
+test.*

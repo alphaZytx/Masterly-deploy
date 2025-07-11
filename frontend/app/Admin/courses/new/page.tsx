@@ -85,10 +85,8 @@ export default function NewCourse() {
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/admin/courses">
-              <span>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Courses
-              </span>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Courses
             </Link>
           </Button>
           <div>
@@ -104,6 +102,7 @@ export default function NewCourse() {
           </Button>
         </div>
       </div>
+
       <Tabs defaultValue="basic" className="space-y-6">
         <TabsList>
           <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -362,5 +361,5 @@ export default function NewCourse() {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }

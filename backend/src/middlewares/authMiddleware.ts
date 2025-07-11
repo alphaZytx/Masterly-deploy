@@ -1,8 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import User from '../models/userModel';
+import User, { IUser } from '../models/userModel';
 import Admin from '../models/adminModel';
-import { IUser } from '../types';
+
+// Extend Request interface to include user without conflicting with Passport
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: IUser;
+  }
+}
 
 /**
  * Verifies the JWT token from the cookie, finds the associated user,
@@ -10,31 +16,23 @@ import { IUser } from '../types';
  */
 export const protect = async (req: Request, res: Response, next: NextFunction) => {
     let token;
-
+    // Only check for token in cookies
     if (req.cookies && req.cookies.token) {
-        try {
-            // Get token from cookie
-            token = req.cookies.token;
-
-            // Verify token
-            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
-
-            // Get user from the token's ID and attach to the request object
-            // This is the crucial step that makes req.user available
-            req.user = await User.findById(decoded.id).select('-password') || undefined;
-
-            if (!req.user) {
-                return res.status(401).json({ message: 'Not authorized, user not found' });
-            }
-
-            next(); // Proceed to the next middleware or controller
-        } catch (error) {
-            return res.status(401).json({ message: 'Not authorized, token failed' });
-        }
+        token = req.cookies.token;
     }
-
     if (!token) {
         return res.status(401).json({ message: 'Not authorized, no token' });
+    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+        const user = await User.findById(decoded.id).select('-password');
+        if (!user) {
+            return res.status(401).json({ message: 'Not authorized, user not found' });
+        }
+        req.user = user as IUser;
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Not authorized, token failed' });
     }
 };
 
@@ -46,8 +44,6 @@ export const protectAdmin = async (req: Request, res: Response, next: NextFuncti
     let token;
     if (req.cookies && req.cookies.admin_token) {
         token = req.cookies.admin_token;
-    } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-        token = req.headers.authorization.split(' ')[1];
     }
     if (!token) {
         return res.status(401).json({ message: 'Not authorized, no token' });
@@ -58,9 +54,63 @@ export const protectAdmin = async (req: Request, res: Response, next: NextFuncti
         if (!admin) {
             return res.status(401).json({ message: 'Not authorized, admin not found' });
         }
-        req.user = admin;
+        req.user = admin as any;
         next();
     } catch (error) {
         return res.status(401).json({ message: 'Not authorized, token failed' });
+    }
+};
+
+/**
+ * Middleware to authenticate token from Authorization header
+ */
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+    let token;
+    if (req.cookies && req.cookies.token) {
+        token = req.cookies.token;
+    }
+    if (!token) {
+        return res.status(401).json({ message: 'Access token required' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+        const user = await User.findById(decoded.id).select('-password');
+        
+        if (!user) {
+            return res.status(401).json({ message: 'User not found' });
+        }
+
+        req.user = user as IUser;
+        next();
+    } catch (error) {
+        return res.status(403).json({ message: 'Invalid token' });
+    }
+};
+
+/**
+ * Optional authentication middleware - doesn't fail if no token provided
+ */
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+    let token;
+    if (req.cookies && req.cookies.token) {
+        token = req.cookies.token;
+    }
+    if (!token) {
+        return next(); // Continue without authentication
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+        const user = await User.findById(decoded.id).select('-password');
+        
+        if (user) {
+            req.user = user as IUser;
+        }
+        
+        next();
+    } catch (error) {
+        // Continue without authentication if token is invalid
+        next();
     }
 };

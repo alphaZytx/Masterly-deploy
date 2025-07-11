@@ -74,6 +74,85 @@ export interface IConcept extends Document {
     quiz: IQuizQuestion[];
 }
 
+// Course interface for the new course model
+export interface ICourse extends Document {
+    _id: Types.ObjectId;
+    title: string;
+    slug: string;
+    description: string;
+    shortDescription?: string;
+    thumbnail: string;
+    bannerImage?: string;
+    category: 'Programming' | 'Data Science' | 'Web Dev' | 'Mobile' | 'DevOps' | 'Cybersecurity' | 'AI/ML' | 'Blockchain' | 'Game Development' | 'Design';
+    subcategory?: string;
+    level: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert' | 'Beginner to Advanced';
+    tags: string[];
+    concepts: any[];
+    syllabus: string[];
+    prerequisites: string[];
+    instructor: {
+        name: string;
+        bio?: string;
+        avatar?: string;
+        credentials?: string[];
+        socialLinks?: {
+            linkedin?: string;
+            twitter?: string;
+            github?: string;
+            website?: string;
+        };
+    };
+    duration: string;
+    totalConcepts: number;
+    totalTopics: number;
+    language: string;
+    subtitles: string[];
+    pricing: {
+        type: 'free' | 'premium' | 'one-time';
+        amount: number;
+        currency: string;
+        discountPercentage: number;
+        originalPrice: number;
+    };
+    status: 'draft' | 'published' | 'coming_soon' | 'archived';
+    isPublic: boolean;
+    isFeatured: boolean;
+    isActive: boolean;
+    comingSoon: boolean;
+    stats: {
+        enrollments: number;
+        completions: number;
+        averageRating: number;
+        totalRatings: number;
+        totalReviews: number;
+        views: number;
+    };
+    reviews: any[];
+    requirements: string[];
+    learningOutcomes: string[];
+    targetAudience: string[];
+    seo: {
+        metaTitle?: string;
+        metaDescription?: string;
+        keywords?: string[];
+    };
+    certificate: {
+        enabled: boolean;
+        template?: string;
+        criteria: {
+            completionPercentage: number;
+            minimumScore: number;
+        };
+    };
+    
+    // Virtuals
+    completionRate?: number;
+    
+    // Methods
+    calculateAverageRating(): number;
+    addReview(userId: Types.ObjectId, rating: number, comment?: string): Promise<ICourse>;
+}
+
 // Updated IUser interface
 export interface IUser extends Document {
     _id: Types.ObjectId;

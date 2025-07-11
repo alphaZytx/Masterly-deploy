@@ -25,10 +25,10 @@ import {
 } from "recharts"
 import { TrendingUp, Clock, Brain, Calendar, Star, CheckCircle } from "lucide-react"
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthStore } from "@/lib/auth"
 
 export default function ProgressPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuthStore();
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

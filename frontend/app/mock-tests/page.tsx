@@ -252,6 +252,7 @@ export default function MockTests() {
           </div>
         </div>
       </div>
+
       <div className="max-w-7xl mx-auto p-6">
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar Categories */}
@@ -433,14 +434,12 @@ export default function MockTests() {
                         )}
                         <Button size="sm" asChild>
                           <Link href={`/mock-tests/${test.id}/start`}>
-                            <span className="flex items-center">
-                              <Play className="w-4 h-4 mr-2" />
-                              {test.status === "not-started"
-                                ? "Start Test"
-                                : test.status === "in-progress"
-                                  ? "Continue"
-                                  : "Retake"}
-                            </span>
+                            <Play className="w-4 h-4 mr-2" />
+                            {test.status === "not-started"
+                              ? "Start Test"
+                              : test.status === "in-progress"
+                                ? "Continue"
+                                : "Retake"}
                           </Link>
                         </Button>
                       </div>
@@ -462,5 +461,5 @@ export default function MockTests() {
         </div>
       </div>
     </div>
-  );
+  )
 }

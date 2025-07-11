@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import adminRoutes from './routes/adminRoutes';
 
 const app = express();
 
@@ -14,9 +15,28 @@ app.use(cors({
   credentials: true,
 }));
 
-// ...existing code to set up routes and middleware...
+// --- Public admin registration and login ---
+app.post('/api/admin/register', registerAdmin);
+app.post('/api/admin/login', loginAdmin);
 
-// Do NOT call app.listen here
 
-module.exports = app;
-export default app;
+// --- Protected admin routes ---
+app.use(protectAdmin, admin);
+
+// User Management Routes
+app.get('/api/admin/users', getAllUsers);
+app.route('/api/admin/users/:id')
+    .get(getUserById)
+    .put(updateUser)
+    .delete(deleteUser);
+
+// Concept (Course) Management Routes
+app.post('/api/admin/concepts', conceptValidationRules(), validate, createConcept);
+app.route('/api/admin/concepts/:id')
+    .put(conceptValidationRules(), validate, updateConcept)
+    .delete(deleteConcept);
+
+// Protected admin profile (for dashboard)
+app.get('/api/admin/profile', getAdminProfile);
+
+// ...existing code to start the server...

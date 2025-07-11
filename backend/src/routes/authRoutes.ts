@@ -5,10 +5,12 @@ import {
     registerUser,
     loginUser,
     getMyProfile,
+    updateUserProfile,
     changePassword,
     logoutUser,
     forgotPassword, 
-    resetPassword  
+    resetPassword,
+    generateTokenAndSetCookie
 } from '../controllers/authController';
 import { protect } from '../middlewares/authMiddleware';
 import {
@@ -29,6 +31,7 @@ router.post('/register', registerRules(), validate, registerUser);
 router.post('/login', loginRules(), validate, loginUser);
 router.post('/logout', protect, logoutUser);
 router.get('/me', protect, getMyProfile);
+router.put('/profile', protect, updateUserProfile);
 router.put('/changepassword', protect, changePasswordRules(), validate, changePassword);
 
 // --- NEW PASSWORD RESET ROUTES ---
@@ -47,18 +50,13 @@ router.get(
     }),
     (req, res) => {
         // Successful authentication, req.user is populated by Passport.
-        const user = req.user as IUser;
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET as string, { expiresIn: '1d' });
-        
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 24 * 60 * 60 * 1000
-        });
-
-        // Redirect user back to their dashboard.
-        res.redirect(`${process.env.CLIENT_URL}/dashboard`);
+        const user = req.user as any;
+        if (!user || !user._id) {
+            return res.redirect(`${process.env.CLIENT_URL}/login?error=google-auth-failed`);
+        }
+        generateTokenAndSetCookie(res, user._id.toString());
+        // Do NOT expose token in URL, just redirect to frontend
+        res.redirect(`${process.env.CLIENT_URL}/auth/callback`);
     }
 );
 

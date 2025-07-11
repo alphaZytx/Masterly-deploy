@@ -1,33 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from "next/server"
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ conceptId: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: { id: string; conceptId: string } }) {
   try {
-    const resolvedParams = await params
-    const conceptId = resolvedParams.conceptId
-    
-    // Connect to MongoDB and fetch the concept using the public content endpoint
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/concepts/content/${conceptId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const { id: courseId, conceptId } = params
+    const body = await request.json()
+    const { completed, timeSpent } = body
+
+    // Get user from token (in real app)
+    // const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    // const user = await verifyToken(token)
+
+    // In a real app, you would update the database
+    // await UserProgress.updateOne(
+    //   {
+    //     userId: user.id,
+    //     courseId,
+    //     'conceptsProgress.conceptId': conceptId
+    //   },
+    //   {
+    //     $set: {
+    //       'conceptsProgress.$.completed': completed,
+    //       'conceptsProgress.$.timeSpent': timeSpent,
+    //       'conceptsProgress.$.completedAt': new Date()
+    //     }
+    //   }
+    // )
+
+    console.log(`Updating progress for concept ${conceptId} in course ${courseId}:`, {
+      completed,
+      timeSpent,
     })
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch concept from backend')
-    }
-
-    const concept = await response.json()
-    
-    return NextResponse.json(concept)
+    return NextResponse.json({
+      success: true,
+      message: "Progress updated successfully",
+    })
   } catch (error) {
-    console.error('Error fetching concept:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch concept' },
-      { status: 500 }
-    )
+    console.error("Error updating concept progress:", error)
+    return NextResponse.json({ success: false, message: "Failed to update progress" }, { status: 500 })
   }
-} 
+}

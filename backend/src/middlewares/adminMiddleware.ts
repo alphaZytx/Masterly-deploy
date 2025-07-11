@@ -6,7 +6,7 @@ import { Request, Response, NextFunction } from 'express';
  */
 export const admin = (req: Request, res: Response, next: NextFunction) => {
     // req.user is populated by the preceding 'protect' middleware
-    if (req.user && (req.user as any).role === 'admin') {
+    if (req.user && req.user.role === 'admin') {
         next(); // User is an admin, proceed
     } else {
         res.status(403).json({ message: 'Forbidden. Admin access required.' });

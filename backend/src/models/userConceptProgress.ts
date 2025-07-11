@@ -1,80 +1,132 @@
-// This file defines the UserConceptProgress model for tracking user progress on concepts.
-// It includes the user's ID, an array of concept progress entries, and timestamps for creation and
-// updates. Each concept progress entry tracks the concept ID, score, number of attempts, and last updated date.
-// The schema is designed to allow for efficient querying and updating of user progress data.
+import mongoose, { Schema } from 'mongoose';
 
-import mongoose, { Schema, Document } from 'mongoose';
-
-export interface IConceptProgress {
-  conceptId: mongoose.Types.ObjectId;
-  score: number;
-  attempts: number;
-  lastUpdated: Date;
-  mastered: boolean;
-  masteredAt?: Date;
-  achievements?: string[];
-}
-
-export interface IUserConceptProgress extends Document {
-  userId: mongoose.Types.ObjectId;
-  concepts: IConceptProgress[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const ConceptProgressSchema = new Schema<IConceptProgress>(
-  {
-    conceptId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Concept',
-      required: true,
-    },
-    score: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 1,
-    },
-    attempts: {
-      type: Number,
-      default: 0,
-    },
-    lastUpdated: {
-      type: Date,
-      default: Date.now,
-    },
-    mastered: {
-      type: Boolean,
-      default: false,
-    },
-    masteredAt: {
-      type: Date,
-      required: false,
-    },
-    achievements: [{ type: String }],
+// Individual concept progress schema for sequential learning
+const ConceptProgressSchema = new Schema({
+  conceptId: {
+    type: String, // Now a string, not ObjectId
+    required: true
   },
-  { _id: false } // no _id for subdocuments
-);
-
-const UserConceptProgressSchema = new Schema<IUserConceptProgress>(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-      unique: true,
-    },
-    concepts: [ConceptProgressSchema],
+  courseId: {
+    type: String, // Now a string, not ObjectId
+    required: true
   },
-  { timestamps: true }
-);
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  masteryScore: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  attempts: {
+    type: Number,
+    default: 0
+  },
+  lastUpdated: {
+    type: Date,
+    default: Date.now
+  },
+  mastered: {
+    type: Boolean,
+    default: false
+  },
+  masteredAt: {
+    type: Date
+  },
+  timeSpent: {
+    type: Number,
+    default: 0 // in seconds
+  },
+  status: {
+    type: String,
+    enum: ['not_started', 'in_progress', 'completed'],
+    default: 'not_started'
+  },
+  // Learning step tracking
+  descriptionRead: {
+    type: Boolean,
+    default: false
+  },
+  videoWatched: {
+    type: Boolean,
+    default: false
+  },
+  quizPassed: {
+    type: Boolean,
+    default: false
+  },
+  // Anti-cheating tracking
+  failedAttempts: {
+    type: Number,
+    default: 0
+  },
+  lastQuizAttempt: {
+    type: Date
+  }
+}, { timestamps: true });
 
-// Optional: you can also ensure unique conceptIds inside the array using application logic
-// (Mongoose does not enforce uniqueness inside arrays)
+ConceptProgressSchema.index({ userId: 1, conceptId: 1, courseId: 1 }, { unique: true });
+ConceptProgressSchema.index({ userId: 1, courseId: 1 });
+ConceptProgressSchema.index({ conceptId: 1 });
 
-const UserConceptProgress = mongoose.model<IUserConceptProgress>(
-  'UserConceptProgress',
-  UserConceptProgressSchema
-);
+// Method to mark description as read
+ConceptProgressSchema.methods.markDescriptionRead = function() {
+  this.descriptionRead = true;
+  if (this.status === 'not_started') {
+    this.status = 'in_progress';
+  }
+  this.lastUpdated = new Date();
+};
 
-export default UserConceptProgress;
+// Method to mark video as watched
+ConceptProgressSchema.methods.markVideoWatched = function(watchTime?: number) {
+  this.videoWatched = true;
+  if (watchTime) {
+    this.timeSpent += watchTime;
+  }
+  this.lastUpdated = new Date();
+};
+
+// Method to handle quiz completion
+ConceptProgressSchema.methods.handleQuizCompletion = function(score: number, passed: boolean) {
+  this.attempts += 1;
+  this.lastQuizAttempt = new Date();
+  this.masteryScore = Math.max(this.masteryScore, score);
+  
+  if (passed) {
+    this.quizPassed = true;
+    this.failedAttempts = 0; // Reset failed attempts on success
+    if (score >= 75) {
+      this.mastered = true;
+      this.masteredAt = new Date();
+      this.status = 'completed';
+    }
+  } else {
+    this.failedAttempts += 1;
+    // Anti-cheating: reset progress if too many failed attempts
+    if (this.failedAttempts >= 3) {
+      this.descriptionRead = false;
+      this.videoWatched = false;
+      this.quizPassed = false;
+      this.status = 'in_progress';
+    }
+  }
+  
+  this.lastUpdated = new Date();
+};
+
+// Method to check if concept is unlocked (prerequisites completed)
+ConceptProgressSchema.methods.isUnlocked = function(prerequisites: string[]) {
+  if (!prerequisites || prerequisites.length === 0) {
+    return true;
+  }
+  
+  // This would need to be checked against other concept progress records
+  // For now, return true - this will be handled in the route logic
+  return true;
+};
+
+export default mongoose.model('UserConceptProgress', ConceptProgressSchema); 

@@ -12,20 +12,95 @@ import Concept from '../models/conceptModel';
  */
 export const getDashboard = async (req: Request, res: Response) => {
     try {
-        // --- THIS IS THE FIX ---
-        // The 'protect' middleware has already fetched the user and attached it to the request.
-        // We can use it directly instead of making another database call.
-        // We just need to populate the learningProfile path on the existing user object.
-        const userWithPopulatedProfile = await (req.user as any)?.populate({
-            path: 'learningProfile.concept', // Go into learningProfile and populate the 'concept' field
-            select: 'title description', // From the populated concept, only select these fields
-        });
-
-        if (!userWithPopulatedProfile) {
+        const user = req.user as any;
+        if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        res.status(200).json(userWithPopulatedProfile);
+        // Get user progress for stats
+        const userProgress = await UserConceptProgress.findOne({ userId: user._id });
+        const conceptsMastered = userProgress ? userProgress.concepts.filter((c: any) => c.mastered).length : 0;
+        const coursesEnrolled = user.enrollments ? user.enrollments.length : 0;
+        const totalStudyTime = user.stats?.totalStudyTime || 0;
+        const currentStreak = user.stats?.currentStreak || 0;
+
+        // Mock data for dashboard (in a real app, this would come from actual course/enrollment data)
+        const dashboardData = {
+            user: {
+                name: user.profile?.firstName || user.firstName || "User",
+                avatar: user.profile?.avatar || null,
+                level: user.stats?.level || 1,
+                plan: user.subscription?.plan || "free"
+            },
+            stats: {
+                coursesEnrolled: coursesEnrolled,
+                conceptsMastered: conceptsMastered,
+                currentStreak: currentStreak,
+                totalStudyTime: Math.round(totalStudyTime / 60) // Convert minutes to hours
+            },
+            weeklyProgress: {
+                conceptsLearned: Math.floor(Math.random() * 5) + 1,
+                quizzesCompleted: Math.floor(Math.random() * 10) + 3,
+                studyTimeHours: Math.floor(Math.random() * 10) + 5
+            },
+            recentCourses: [
+                {
+                    title: "JavaScript Fundamentals",
+                    progress: 75,
+                    nextLesson: "Async Programming",
+                    timeSpent: "2h 30m",
+                    concepts: { completed: 8, total: 12 }
+                },
+                {
+                    title: "React Basics",
+                    progress: 45,
+                    nextLesson: "State Management",
+                    timeSpent: "1h 45m",
+                    concepts: { completed: 5, total: 11 }
+                },
+                {
+                    title: "Data Structures",
+                    progress: 90,
+                    nextLesson: "Advanced Algorithms",
+                    timeSpent: "4h 15m",
+                    concepts: { completed: 9, total: 10 }
+                }
+            ],
+            achievements: [
+                {
+                    title: "First Course Completed",
+                    date: "March 2024",
+                    type: "course"
+                },
+                {
+                    title: "7-Day Streak",
+                    date: "April 2024",
+                    type: "streak"
+                },
+                {
+                    title: "Quiz Master",
+                    date: "May 2024",
+                    type: "quiz"
+                }
+            ],
+            upcomingTests: [
+                {
+                    title: "JavaScript Assessment",
+                    date: "2024-01-15",
+                    duration: "45 minutes"
+                },
+                {
+                    title: "React Fundamentals Test",
+                    date: "2024-01-20",
+                    duration: "60 minutes"
+                }
+            ]
+        };
+
+        res.status(200).json({ 
+            success: true, 
+            data: dashboardData 
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
@@ -40,26 +115,30 @@ export const getDashboard = async (req: Request, res: Response) => {
 export const getUserProgress = async (req: Request, res: Response) => {
     try {
         const { userId } = req.params;
+        // Use current user's ID if no userId provided
+        const targetUserId = userId || (req.user as any)?._id?.toString();
+        
         // Debug log to ensure id consistency
         console.log('DEBUG getUserProgress:', {
           reqUser: req.user,
-          reqUser_id: (req.user as any)?._id,
-          reqUserId: (req.user as any)?._id,
-          paramUserId: userId
+          reqUser_id: req.user?._id,
+          reqUserId: req.user?.id,
+          paramUserId: userId,
+          targetUserId
         });
         
         // Check if the requesting user is accessing their own progress or is an admin
-        if ((req.user as any)?._id?.toString() !== userId && (req.user as any)?.role !== 'admin') {
+        if ((req.user as any)?._id?.toString() !== targetUserId && (req.user as any)?.role !== 'admin') {
             return res.status(403).json({ message: 'Not authorized to access this user\'s progress' });
         }
 
-        const userProgress = await UserConceptProgress.findOne({ userId });
+        const userProgress = await UserConceptProgress.findOne({ userId: targetUserId });
         if (!userProgress) {
             return res.status(200).json([]);
         }
 
         // Get unlocked concepts for this user
-        const unlockedConcepts = new Set(await getUnlockedConcepts(userId));
+        const unlockedConcepts = new Set(await getUnlockedConcepts(targetUserId));
 
         // For each concept, return locked status
         const progressWithLock = userProgress.concepts.map((c: any) => ({
@@ -89,24 +168,108 @@ export const updateProfile = async (req: Request, res: Response) => {
     try {
         const user = await User.findById((req.user as any)?._id);
 
-        if (user) {
-            user.firstName = req.body.firstName || user.firstName;
-            // You can add other updatable fields here, for example:
-            // user.email = req.body.email || user.email;
-            // NOTE: Changing email would require additional verification logic.
-
-            const updatedUser = await user.save();
-
-            // Return the updated user data, excluding the password.
-            res.status(200).json({
-                _id: updatedUser._id,
-                firstName: updatedUser.firstName,
-                email: updatedUser.email,
-                role: updatedUser.role,
-            });
-        } else {
-            res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
         }
+
+        // Update profile fields
+        if (req.body.profile) {
+            if (req.body.profile.firstName) user.profile.firstName = req.body.profile.firstName;
+            if (req.body.profile.lastName) user.profile.lastName = req.body.profile.lastName;
+            if (req.body.profile.bio) user.profile.bio = req.body.profile.bio;
+            if (req.body.profile.location) user.profile.location = req.body.profile.location;
+            if (req.body.profile.phone) user.profile.phone = req.body.profile.phone;
+            if (req.body.profile.website) user.profile.website = req.body.profile.website;
+            if (req.body.profile.socialLinks) {
+                user.profile.socialLinks = {
+                    ...user.profile.socialLinks,
+                    ...req.body.profile.socialLinks
+                };
+            }
+        }
+
+        // Update preferences
+        if (req.body.preferences) {
+            user.preferences = {
+                ...user.preferences,
+                ...req.body.preferences
+            };
+        }
+
+        // Update subscription
+        if (req.body.subscription) {
+            user.subscription = {
+                ...user.subscription,
+                ...req.body.subscription
+            };
+        }
+
+        const updatedUser = await user.save();
+
+        // Return the updated user data in the same format as getMyProfile
+        const userResponse = {
+            _id: updatedUser._id,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            profile: {
+                firstName: updatedUser.profile?.firstName || updatedUser.firstName,
+                lastName: updatedUser.profile?.lastName || updatedUser.lastName,
+                displayName: updatedUser.profile?.displayName,
+                fullName: `${updatedUser.profile?.firstName || updatedUser.firstName} ${updatedUser.profile?.lastName || updatedUser.lastName}`,
+                avatar: updatedUser.profile?.avatar,
+                bio: updatedUser.profile?.bio,
+                location: updatedUser.profile?.location,
+                phone: updatedUser.profile?.phone,
+                website: updatedUser.profile?.website,
+                socialLinks: updatedUser.profile?.socialLinks
+            },
+            subscription: {
+                plan: updatedUser.subscription?.plan || 'free',
+                status: updatedUser.subscription?.status || 'active',
+                endDate: updatedUser.subscription?.endDate
+            },
+            stats: updatedUser.stats || {
+                level: 1,
+                experiencePoints: 0,
+                currentStreak: 0,
+                totalStudyTime: 0,
+                coursesCompleted: 0,
+                coursesEnrolled: 0,
+                conceptsMastered: 0,
+                longestStreak: 0,
+                quizzesCompleted: 0
+            },
+            preferences: updatedUser.preferences || {
+                notifications: {
+                    email: true,
+                    push: true,
+                    courseReminders: true,
+                    achievements: true,
+                    weeklyReports: true
+                },
+                learning: {
+                    difficultyPreference: 'adaptive',
+                    dailyGoal: 30,
+                    preferredLanguages: ['en']
+                },
+                privacy: {
+                    profileVisibility: 'public',
+                    showProgress: true,
+                    showAchievements: true
+                }
+            },
+            role: updatedUser.role || 'student',
+            emailVerified: updatedUser.emailVerified || false,
+            isActive: updatedUser.isActive || true,
+            createdAt: updatedUser.createdAt,
+            updatedAt: updatedUser.updatedAt
+        };
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Profile updated successfully',
+            data: { user: userResponse }
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
@@ -244,7 +407,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             const conceptIds = recentConcepts.map(c => c.conceptId);
             const conceptDocs = conceptIds.length > 0 ? await Concept.find({ _id: { $in: conceptIds } }) : [];
             quizPerformanceTrends = recentConcepts.map(c => {
-                const conceptDoc = conceptDocs.find(cd => String((cd as any)._id) === String(c.conceptId));
+                const conceptDoc = conceptDocs.find(cd => (cd as any)._id.toString() === c.conceptId.toString());
                 return {
                     quiz: conceptDoc ? (conceptDoc as any).title : 'Unknown',
                     score: Math.round((c.score || 0) * 100),
@@ -263,13 +426,12 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             // Group by category (course)
             const courseMap: Record<string, { total: number, completed: number, concepts: { title: string, mastered: boolean }[] }> = {};
             userProgress.concepts.forEach(c => {
-                const doc = conceptDocs.find(cd => String((cd as any)._id) === String(c.conceptId));
-                let course = doc && (doc.category || doc.Category) ? (doc.category || doc.Category) : 'Uncategorized';
-                if (!course) course = 'Uncategorized';
-                if (!(course in (courseMap as any))) (courseMap as any)[course] = { total: 0, completed: 0, concepts: [] };
-                (courseMap as any)[course].total += 1;
-                if (c.mastered) (courseMap as any)[course].completed += 1;
-                (courseMap as any)[course].concepts.push({ title: doc ? doc.title : 'Unknown', mastered: !!c.mastered });
+                const doc = conceptDocs.find(cd => cd._id.toString() === c.conceptId.toString());
+                const course = doc && (doc.category || doc.Category) ? (doc.category || doc.Category) : 'Uncategorized';
+                if (!courseMap[course]) courseMap[course] = { total: 0, completed: 0, concepts: [] };
+                courseMap[course].total += 1;
+                if (c.mastered) courseMap[course].completed += 1;
+                courseMap[course].concepts.push({ title: doc ? doc.title : 'Unknown', mastered: !!c.mastered });
             });
             currentCourseProgress = Object.entries(courseMap).map(([courseName, data]) => {
                 const next = data.concepts.find(c => !c.mastered);
@@ -309,11 +471,10 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             // Group by conceptType or category
             const typeMap: Record<string, { scores: number[] }> = {};
             userProgress.concepts.forEach(c => {
-                const doc = conceptDocs.find(cd => String((cd as any)._id) === String(c.conceptId));
-                let type = doc && (doc.conceptType || doc.category || doc.Category) ? (doc.conceptType || doc.category || doc.Category) : 'Other';
-                if (!type) type = 'Other';
-                if (!(type in (typeMap as any))) (typeMap as any)[type] = { scores: [] };
-                if (c.attempts > 0) (typeMap as any)[type].scores.push((c.score || 0) * 100);
+                const doc = conceptDocs.find(cd => cd._id.toString() === c.conceptId.toString());
+                const type = doc && (doc.conceptType || doc.category || doc.Category) ? (doc.conceptType || doc.category || doc.Category) : 'Other';
+                if (!typeMap[type]) typeMap[type] = { scores: [] };
+                if (c.attempts > 0) typeMap[type].scores.push((c.score || 0) * 100);
             });
             // Color palette
             const palette = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6366f1", "#f472b6", "#22d3ee", "#a3e635", "#facc15"];
@@ -370,7 +531,7 @@ export const getUserAnalytics = async (req: Request, res: Response) => {
             let allAchievements: { concept: string, achievement: string, date: Date }[] = [];
             userProgress.concepts.forEach(c => {
                 if (c.achievements && c.achievements.length > 0) {
-                    const conceptDoc = conceptDocs.find(cd => String((cd as any)._id) === String(c.conceptId));
+                    const conceptDoc = conceptDocs.find(cd => (cd as any)._id.toString() === c.conceptId.toString());
                     c.achievements.forEach(a => {
                         allAchievements.push({
                             concept: conceptDoc ? (conceptDoc as any).title : 'Unknown',

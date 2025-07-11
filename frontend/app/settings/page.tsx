@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useAuthStore } from "@/lib/auth"
+import apiClient from "@/lib/api"
 import {
   Bell,
   Shield,
@@ -38,10 +40,12 @@ import {
 
 export default function SettingsPage() {
   const { toast } = useToast()
+  const { user, updateUser, refreshUser } = useAuthStore()
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [profileImage, setProfileImage] = useState("/placeholder.svg?height=80&width=80")
 
   // Form states
@@ -52,12 +56,67 @@ export default function SettingsPage() {
   })
 
   const [profileForm, setProfileForm] = useState({
-    firstName: "Ankit",
-    lastName: "Pandey",
-    email: "Ankit.Pandey@example.com",
-    phone: "+91 9234121XXX",
-    bio: "Passionate learner focused on software engineering and system design",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    bio: "",
   })
+
+  const [preferencesForm, setPreferencesForm] = useState({
+    notifications: {
+      email: true,
+      push: true,
+      courseReminders: true,
+      achievements: true,
+      weeklyReports: true,
+    },
+    learning: {
+      difficultyPreference: "adaptive",
+      dailyGoal: 30,
+      preferredLanguages: ["English"],
+    },
+    privacy: {
+      profileVisibility: "public",
+      showProgress: true,
+      showAchievements: true,
+    },
+  })
+
+  // Initialize form data from user
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        firstName: user.profile.firstName || "",
+        lastName: user.profile.lastName || "",
+        email: user.email || "",
+        phone: user.profile.phone || "",
+        bio: user.profile.bio || "",
+      })
+      
+      setPreferencesForm(user.preferences || {
+        notifications: {
+          email: true,
+          push: true,
+          courseReminders: true,
+          achievements: true,
+          weeklyReports: true,
+        },
+        learning: {
+          difficultyPreference: "adaptive",
+          dailyGoal: 30,
+          preferredLanguages: ["English"],
+        },
+        privacy: {
+          profileVisibility: "public",
+          showProgress: true,
+          showAchievements: true,
+        },
+      })
+      
+      setProfileImage(user.profile.avatar || "/placeholder.svg?height=80&width=80")
+    }
+  }, [user])
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -82,7 +141,7 @@ export default function SettingsPage() {
     })
   }
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast({
         title: "Error",
@@ -101,12 +160,23 @@ export default function SettingsPage() {
       return
     }
 
-    // Simulate password change
-    toast({
-      title: "Password Changed",
-      description: "Your password has been updated successfully.",
-    })
-    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    try {
+      setIsLoading(true)
+      await apiClient.changePassword(passwordForm.currentPassword, passwordForm.newPassword)
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully.",
+      })
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleEnable2FA = () => {
@@ -125,11 +195,51 @@ export default function SettingsPage() {
     })
   }
 
-  const handleProfileSave = () => {
-    toast({
-      title: "Profile Updated",
-      description: "Your profile information has been saved successfully.",
-    })
+  const handleProfileSave = async () => {
+    try {
+      setIsLoading(true)
+      const updatedUser = await apiClient.updateUserProfile({
+        firstName: profileForm.firstName,
+        lastName: profileForm.lastName,
+        phone: profileForm.phone,
+        bio: profileForm.bio,
+      })
+      
+      updateUser(updatedUser)
+      toast({
+        title: "Profile Updated",
+        description: "Your profile information has been saved successfully.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePreferencesSave = async () => {
+    try {
+      setIsLoading(true)
+      const updatedUser = await apiClient.updateUserPreferences(preferencesForm)
+      
+      updateUser(updatedUser)
+      toast({
+        title: "Preferences Updated",
+        description: "Your preferences have been saved successfully.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update preferences.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleDataExport = () => {
@@ -145,6 +255,17 @@ export default function SettingsPage() {
       description: "Account deletion request has been submitted. You'll receive a confirmation email.",
       variant: "destructive",
     })
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p>Loading settings...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -224,8 +345,10 @@ export default function SettingsPage() {
                     id="email"
                     type="email"
                     value={profileForm.email}
-                    onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
                   />
+                  <p className="text-sm text-gray-500">Email cannot be changed</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
@@ -247,7 +370,16 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <Button onClick={handleProfileSave}>Save Changes</Button>
+              <Button onClick={handleProfileSave} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
             </CardContent>
           </Card>
 
@@ -265,22 +397,35 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="dailyGoal">Daily Study Goal (hours)</Label>
-                  <Select defaultValue="2">
+                  <Label htmlFor="dailyGoal">Daily Study Goal (minutes)</Label>
+                  <Select 
+                    value={preferencesForm.learning.dailyGoal.toString()}
+                    onValueChange={(value) => setPreferencesForm({
+                      ...preferencesForm,
+                      learning: { ...preferencesForm.learning, dailyGoal: parseInt(value) }
+                    })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 hour</SelectItem>
-                      <SelectItem value="2">2 hours</SelectItem>
-                      <SelectItem value="3">3 hours</SelectItem>
-                      <SelectItem value="4">4+ hours</SelectItem>
+                      <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="30">30 minutes</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="120">2 hours</SelectItem>
+                      <SelectItem value="180">3 hours</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="difficulty">Preferred Difficulty</Label>
-                  <Select defaultValue="intermediate">
+                  <Select 
+                    value={preferencesForm.learning.difficultyPreference}
+                    onValueChange={(value) => setPreferencesForm({
+                      ...preferencesForm,
+                      learning: { ...preferencesForm.learning, difficultyPreference: value }
+                    })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -288,39 +433,22 @@ export default function SettingsPage() {
                       <SelectItem value="beginner">Beginner</SelectItem>
                       <SelectItem value="intermediate">Intermediate</SelectItem>
                       <SelectItem value="advanced">Advanced</SelectItem>
-                      <SelectItem value="mixed">Mixed</SelectItem>
+                      <SelectItem value="adaptive">Adaptive</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Auto-advance lessons</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Automatically move to the next lesson after completion
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Show hints during quizzes</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Display helpful hints when you're stuck</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Practice reminders</Label>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Get reminded to practice concepts you haven't reviewed
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </div>
+              <Button onClick={handlePreferencesSave} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Preferences"
+                )}
+              </Button>
             </CardContent>
           </Card>
 
@@ -343,7 +471,13 @@ export default function SettingsPage() {
                     Receive updates about your progress and new content
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={preferencesForm.notifications.email}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    notifications: { ...preferencesForm.notifications, email: checked }
+                  })}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -352,7 +486,43 @@ export default function SettingsPage() {
                     Get notified about study reminders and achievements
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={preferencesForm.notifications.push}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    notifications: { ...preferencesForm.notifications, push: checked }
+                  })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Course reminders</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Get reminded about your enrolled courses
+                  </p>
+                </div>
+                <Switch 
+                  checked={preferencesForm.notifications.courseReminders}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    notifications: { ...preferencesForm.notifications, courseReminders: checked }
+                  })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Achievement notifications</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Get notified when you earn achievements
+                  </p>
+                </div>
+                <Switch 
+                  checked={preferencesForm.notifications.achievements}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    notifications: { ...preferencesForm.notifications, achievements: checked }
+                  })}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -361,16 +531,13 @@ export default function SettingsPage() {
                     Receive a summary of your weekly learning progress
                   </p>
                 </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Course recommendations</Label>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Get personalized course and content recommendations
-                  </p>
-                </div>
-                <Switch />
+                <Switch 
+                  checked={preferencesForm.notifications.weeklyReports}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    notifications: { ...preferencesForm.notifications, weeklyReports: checked }
+                  })}
+                />
               </div>
             </CardContent>
           </Card>
@@ -394,7 +561,16 @@ export default function SettingsPage() {
                     Make your profile visible to other learners
                   </p>
                 </div>
-                <Switch />
+                <Switch 
+                  checked={preferencesForm.privacy.profileVisibility === 'public'}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    privacy: { 
+                      ...preferencesForm.privacy, 
+                      profileVisibility: checked ? 'public' : 'private' 
+                    }
+                  })}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -403,7 +579,28 @@ export default function SettingsPage() {
                     Display your learning progress on your public profile
                   </p>
                 </div>
-                <Switch />
+                <Switch 
+                  checked={preferencesForm.privacy.showProgress}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    privacy: { ...preferencesForm.privacy, showProgress: checked }
+                  })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Show achievements publicly</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Display your achievements on your public profile
+                  </p>
+                </div>
+                <Switch 
+                  checked={preferencesForm.privacy.showAchievements}
+                  onCheckedChange={(checked) => setPreferencesForm({
+                    ...preferencesForm,
+                    privacy: { ...preferencesForm.privacy, showAchievements: checked }
+                  })}
+                />
               </div>
               <Separator />
 
