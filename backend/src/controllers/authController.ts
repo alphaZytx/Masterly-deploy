@@ -12,8 +12,8 @@ const generateTokenAndSetCookie = (res: Response, userId: string) => {
     const token = jwt.sign({ id: userId }, process.env.JWT_SECRET as string, { expiresIn: '1d' });
     res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: true, // Always true for cross-site
+        sameSite: 'none', // Required for cross-site
         maxAge: 24 * 60 * 60 * 1000,
     });
 };
