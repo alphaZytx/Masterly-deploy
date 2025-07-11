@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "graphlib": "^2.1.8"
+  }
+}
