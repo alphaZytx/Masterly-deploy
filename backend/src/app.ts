@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import connectDB from './config/db';
 dotenv.config();
-import './config/passport-setup'; 
+import './config/passport-setup';
 
 
 // --- Route Imports ---
@@ -29,10 +29,25 @@ connectDB();
 // --- THIS IS THE CRUCIAL FIX ---
 // Configure CORS to allow requests from your frontend's origin
 // and to allow cookies to be sent back and forth.
+const allowedOrigins = [
+    process.env.CLIENT_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://masterly-deploy-henna.vercel.app'
+  ];
+
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: function (origin, callback) {
+        // allow requests with no origin (like mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        } else {
+            return callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
 }));
+
 
 // --- Core Middlewares ---
 app.use(express.json());
