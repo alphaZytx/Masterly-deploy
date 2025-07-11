@@ -64,7 +64,7 @@ router.get("/:courseId/topics/:topicId/concepts", async (req: Request, res: Resp
       });
     }
 
-    const topic = course.topics.find(t => t._id.toString() === topicId);
+    const topic = (course as any).topics.find((t : any )=> t._id.toString() === topicId);
     if (!topic) {
       return res.status(404).json({
         success: false,
@@ -76,10 +76,10 @@ router.get("/:courseId/topics/:topicId/concepts", async (req: Request, res: Resp
     
     if (topic.useReferencedConcepts) {
       // Get referenced concepts
-      const conceptIds = topic.conceptReferences.map(ref => ref.conceptId);
+      const conceptIds = (topic as any).conceptReferences.map((ref : any)=> ref.conceptId);
       const referencedConcepts = await Concept.find({ _id: { $in: conceptIds } });
       
-      concepts = topic.conceptReferences.map(ref => {
+      concepts = (topic as any).conceptReferences.map((ref: any) => {
         const concept = referencedConcepts.find((c: any) => c._id.toString() === ref.conceptId.toString());
         return {
           ...concept?.toObject(),
@@ -90,10 +90,10 @@ router.get("/:courseId/topics/:topicId/concepts", async (req: Request, res: Resp
           title: ref.customTitle || concept?.title,
           description: ref.customDescription || concept?.description
         };
-      }).sort((a, b) => a.order - b.order);
+      }).sort((a: any, b: any) => a.order - b.order);
     } else {
       // Use embedded concepts
-      concepts = topic.concepts;
+      concepts = (topic as any).concepts;
     }
 
     res.json({
@@ -377,11 +377,11 @@ router.post("/:courseId/submit-test", authenticateToken, async (req: Request, re
     const results = await calculateTestResults(course, answers, timeSpent, testType)
 
     // Save test results
-    await saveTestResults(userId, courseId, results, testType)
+    await saveTestResults(String(userId), String(courseId), results, String(testType));
 
     // Update user progress if test is passed
     if (results.passed && testType === 'course_test') {
-      await updateCourseProgressAfterTest(userId, courseId, results)
+      await updateCourseProgressAfterTest(String(userId), String(courseId), String(results))
     }
 
     res.json({

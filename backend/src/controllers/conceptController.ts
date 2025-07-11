@@ -67,8 +67,8 @@ export const testConcepts = async (req: Request, res: Response) => {
             message: count > 0 ? 'Concepts found in database' : 'No concepts found in database'
         });
     } catch (error) {
-        console.error('Test concepts error:', error);
-        res.status(500).json({ message: 'Database error', error: error.message });
+        console.error('Test concepts error:', String(error));
+        res.status(500).json({ message: 'Database error', error: (error as Error).message });
     }
 };
 
@@ -94,8 +94,8 @@ export const testQuiz = async (req: Request, res: Response) => {
             }))
         });
     } catch (error) {
-        console.error('Test quiz error:', error);
-        res.status(500).json({ message: 'Database error', error: error.message });
+        console.error('Test quiz error:', String(error));
+        res.status(500).json({ message: 'Database error', error: (error as Error).message });
     }
 };
 
@@ -134,8 +134,8 @@ export const getConceptQuiz = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Concept not found' });
         }
 
-        const quizQuestions = getQuizQuestions(concept);
-        
+        const quizQuestions =  getQuizQuestions(concept.toObject() as any)
+
         if (quizQuestions.length === 0) {
             return res.status(404).json({ message: 'No quiz questions found for this concept' });
         }

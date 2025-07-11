@@ -56,10 +56,10 @@ export class DashboardController {
           name: user.profile?.fullName || user.profile?.displayName || user.email?.split('@')[0],
           email: user.email,
           avatar: user.profile?.avatar,
-          level: user.profile?.level || 'Beginner',
+          level: user.stats?.level || 'Beginner',
           plan: user.subscription?.plan || 'free',
-          joinDate: user.createdAt,
-          lastActive: user.lastLoginAt || user.updatedAt
+          joinDate: typeof user.get === 'function' ? user.get('createdAt') : (user as any).createdAt,
+          lastActive: user.lastLoginAt || (typeof user.get === 'function' ? user.get('updatedAt') : (user as any).updatedAt)
         },
         stats,
         learningPaths: learningPaths.map(path => ({
@@ -100,15 +100,15 @@ export class DashboardController {
     const totalConcepts = userProgress.length;
     const completedConcepts = userProgress.filter(p => p.status === 'completed').length;
     const inProgressConcepts = userProgress.filter(p => p.status === 'in_progress').length;
-    
+
     const totalTimeSpent = userProgress.reduce((sum, p) => sum + (p.timeSpent || 0), 0);
     const totalQuizAttempts = userProgress.reduce((sum, p) => sum + ((p.quizAttempts || []).length || 0), 0);
-    const averageMasteryScore = userProgress.length > 0 
-      ? userProgress.reduce((sum, p) => sum + (p.masteryScore || 0), 0) / userProgress.length 
+    const averageMasteryScore = userProgress.length > 0
+      ? userProgress.reduce((sum, p) => sum + (p.masteryScore || 0), 0) / userProgress.length
       : 0;
 
     // Calculate current streak
-    const currentStreak = learningPaths.length > 0 
+    const currentStreak = learningPaths.length > 0
       ? Math.max(...learningPaths.map(p => p.stats.streakDays || 0))
       : 0;
 
@@ -159,11 +159,11 @@ export class DashboardController {
     // Calculate averages
     Object.keys(courseProgress).forEach(courseId => {
       const course = courseProgress[courseId];
-      course.averageMastery = course.totalConcepts > 0 
-        ? Math.round((course.averageMastery / course.totalConcepts) * 10) / 10 
+      course.averageMastery = course.totalConcepts > 0
+        ? Math.round((course.averageMastery / course.totalConcepts) * 10) / 10
         : 0;
-      course.progressPercentage = course.totalConcepts > 0 
-        ? Math.round((course.completedConcepts / course.totalConcepts) * 100) 
+      course.progressPercentage = course.totalConcepts > 0
+        ? Math.round((course.completedConcepts / course.totalConcepts) * 100)
         : 0;
     });
 
@@ -185,7 +185,7 @@ export class DashboardController {
       courseTitle: (progress.courseId as any)?.title || 'Unknown Course',
       action: progress.status === 'completed' ? 'completed' : 'studied',
       timestamp: progress.lastAccessedAt,
-      masteryScore: progress.masteryScore,
+      masteryScore: (progress as any).masteryScore,
       timeSpent: progress.timeSpent
     }));
   }
@@ -204,9 +204,9 @@ export class DashboardController {
     const userCourses = [...new Set(completedConcepts)];
 
     // Find courses user hasn't enrolled in yet
-    const allCourses = await Course.find({ 
-      status: 'published', 
-      isActive: true 
+    const allCourses = await Course.find({
+      status: 'published',
+      isActive: true
     }).select('title description thumbnail category level stats');
 
     const recommendedCourses = allCourses
@@ -308,7 +308,7 @@ export class DashboardController {
    * Get upcoming deadlines and reminders
    */
   private static async getUpcomingDeadlines(userId: Types.ObjectId, learningPaths: any[]) {
-    const deadlines = [];
+    const deadlines: any[] = [];
 
     // Add reminders for inactive learning paths
     const inactivePaths = learningPaths.filter(path => {
@@ -346,11 +346,14 @@ export class DashboardController {
       const summary = {
         totalStudyTime: userProgress.reduce((sum, p) => sum + (p.timeSpent || 0), 0),
         conceptsMastered: userProgress.filter(p => p.status === 'completed').length,
-        averageMasteryScore: userProgress.length > 0 
-          ? userProgress.reduce((sum, p) => sum + (p.masteryScore || 0), 0) / userProgress.length 
+        averageMasteryScore: userProgress.length > 0
+          ? userProgress.reduce((sum, p) => sum + ((p as any).masteryScore || 0), 0) / userProgress.length
           : 0,
-        coursesStudied: [...new Set(userProgress.map(p => p.courseId?._id?.toString()).filter(Boolean))].length,
-        recentActivity: userProgress
+        coursesStudied: [...new Set(userProgress.map(p =>
+          typeof p.courseId === 'string'
+            ? p.courseId
+            : (p.courseId as any)?._id?.toString()
+        ).filter(Boolean))].length, recentActivity: userProgress
           .filter(p => p.lastAccessedAt)
           .sort((a, b) => new Date(b.lastAccessedAt).getTime() - new Date(a.lastAccessedAt).getTime())
           .slice(0, 3)

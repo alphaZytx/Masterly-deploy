@@ -255,7 +255,9 @@ export const exportLogs = async (req: Request, res: Response) => {
       // Convert to CSV format
       const csvHeader = 'Timestamp,Action,Category,Severity,Details,User,IP Address\n';
       const csvData = logs.map(log => {
-        const user = log.userId ? `${log.userId.firstName} ${log.userId.lastName}` : log.userEmail || 'Anonymous';
+        const user = log.userId
+          ? `${(log.userId as any).firstName ?? ''} ${(log.userId as any).lastName ?? ''}`.trim() || log.userEmail || 'Anonymous'
+          : log.userEmail || 'Anonymous';
         return `${log.timestamp},${log.action},${log.category},${log.severity},"${log.details}",${user},${log.ipAddress || ''}`;
       }).join('\n');
 

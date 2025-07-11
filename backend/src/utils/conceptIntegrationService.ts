@@ -239,15 +239,15 @@ export class ConceptIntegrationService {
       const course = await Course.findById(topicId);
       if (!course) return [];
 
-      const topic = (course as any).topics.find(t => t._id.toString() === topicId);
+      const topic = (course as any).topics.find((t: any) => t._id.toString() === topicId);
       if (!topic || !topic.useReferencedConcepts) return [];
 
-      const conceptIds = (topic as any).conceptReferences.map(ref => ref.conceptId);
+      const conceptIds = (topic as any).conceptReferences.map((ref: any) => ref.conceptId);
       const concepts = await Concept.find({ _id: { $in: conceptIds } });
 
       // Merge concept data with reference data
-      return (topic as any).conceptReferences.map(ref => {
-        const concept = concepts.find(c => c._id.toString() === ref.conceptId.toString());
+      return (topic as any).conceptReferences.map((ref: any) => {
+        const concept = concepts.find((c: any) => c._id.toString() === ref.conceptId.toString());
         return {
           ...concept?.toObject(),
           order: ref.order,
@@ -257,7 +257,7 @@ export class ConceptIntegrationService {
           title: ref.customTitle || concept?.title,
           description: ref.customDescription || concept?.description
         };
-      }).sort((a, b) => a.order - b.order);
+      }).sort((a: any, b: any) => a.order - b.order);
 
     } catch (error: unknown) {
       const errMsg = (error as Error).message || String(error);

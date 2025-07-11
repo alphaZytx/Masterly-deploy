@@ -32,8 +32,8 @@ router.get('/test-user', async (req: Request, res: Response) => {
         message: 'Test user found',
         user: {
           _id: testUser._id,
-          firstName: testUser.firstName,
-          lastName: testUser.lastName,
+          firstName: testUser.profile?.firstName,
+          lastName: testUser.profile?.lastName,
           email: testUser.email
         }
       });

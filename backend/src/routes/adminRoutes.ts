@@ -238,7 +238,7 @@ router.put('/profile', async (req, res) => {
         // Only allow updating certain fields
         const fields = ["firstName", "lastName", "phone", "avatarUrl", "todos"];
         fields.forEach(field => {
-            if (req.body[field] !== undefined) admin[field] = req.body[field];
+            if (req.body[field] !== undefined) (admin as any)[field] = req.body[field];
         });
         await admin.save();
         res.json(admin);
@@ -277,7 +277,7 @@ router.post('/todos', async (req, res) => {
         const admin = await Admin.findById(req.user?._id);
         if (!admin) return res.status(401).json({ message: "Not authorized" });
         if (typeof req.body.todo === "string" && req.body.todo.trim()) {
-            admin.todos.push(req.body.todo.trim());
+            (admin as any).todos.push(req.body.todo.trim());
             await admin.save();
         }
         res.json({ todos: admin.todos });
@@ -292,8 +292,8 @@ router.delete('/todos/:index', async (req, res) => {
         const admin = await Admin.findById(req.user?._id);
         if (!admin) return res.status(401).json({ message: "Not authorized" });
         const idx = parseInt(req.params.index, 10);
-        if (!isNaN(idx) && idx >= 0 && idx < admin.todos.length) {
-            admin.todos.splice(idx, 1);
+        if (!isNaN(idx) && idx >= 0 && idx < (admin as any).todos.length) {
+            (admin as any).todos.splice(idx, 1);
             await admin.save();
         }
         res.json({ todos: admin.todos });

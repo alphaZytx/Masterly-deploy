@@ -205,7 +205,7 @@ export const getEmergencyContacts = async (req: Request, res: Response) => {
             email: user.email,
             fullName: `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || 'N/A',
             emergencyContact: user.profile?.emergencyContact,
-            createdAt: user.createdAt
+            createdAt: (user as any).createdAt
         }));
 
         res.status(200).json({
@@ -225,17 +225,17 @@ export const getEmergencyContacts = async (req: Request, res: Response) => {
 };
 
 // GET /api/admin/courses-with-concepts
-export const getCoursesWithConceptTitles = async (req, res) => {
+export const getCoursesWithConceptTitles = async (req: Request, res: Response) => {
   try {
     const courses = await require('../models/courseModel').default.find({}, 'title _id topics');
-    const result = courses.map(course => ({
+    const result = courses.map((course: any) => ({
       _id: course._id,
       title: course.title,
       // Use topics if concepts is not present
       concepts: (course.topics || []).flatMap((topic: any) => (topic.conceptReferences || []).map((c: any) => ({ conceptId: c.conceptId, title: c.title })))
     }));
     res.json({ success: true, data: result });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ success: false, message: 'Failed to fetch courses', error: err.message });
   }
 };

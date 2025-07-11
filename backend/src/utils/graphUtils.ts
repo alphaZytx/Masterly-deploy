@@ -9,7 +9,7 @@ interface ConceptNode {
  * Builds a directed concept graph from concept documents.
  * Each edge represents a prerequisite relationship (A ➝ B means A is a prerequisite of B).
  */
-export function buildConceptGraph(concepts: ConceptNode[]): Graph {
+export function buildConceptGraph(concepts: ConceptNode[]): any {
   const graph = new Graph({ directed: true });
 
   for (const concept of concepts) {
@@ -32,7 +32,7 @@ export function buildConceptGraph(concepts: ConceptNode[]): Graph {
  * regardless of mastery.
  */
 export function getFullLearningPath(
-  graph: Graph,
+  graph: any,
   startId: string,
   endId: string
 ): string[] {
@@ -59,7 +59,7 @@ export function getFullLearningPath(
 
 // All paths from start to end, including all prerequisites 
 
-export function getAllPaths(graph: Graph, start: string, end: string): string[][] {
+export function getAllPaths(graph: any, start: string, end: string): string[][] {
   const allPaths: string[][] = [];
 
   const dfs = (node: string, path: string[]) => {

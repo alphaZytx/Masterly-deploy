@@ -215,10 +215,10 @@ export const updateProfile = async (req: Request, res: Response) => {
             email: updatedUser.email,
             role: updatedUser.role,
             profile: {
-                firstName: updatedUser.profile?.firstName || updatedUser.firstName,
-                lastName: updatedUser.profile?.lastName || updatedUser.lastName,
+                firstName: updatedUser.profile?.firstName,
+                lastName: updatedUser.profile?.lastName,
                 displayName: updatedUser.profile?.displayName,
-                fullName: `${updatedUser.profile?.firstName || updatedUser.firstName} ${updatedUser.profile?.lastName || updatedUser.lastName}`,
+                fullName: `${updatedUser.profile?.firstName ?? ''} ${updatedUser.profile?.lastName ?? ''}`.trim(),
                 avatar: updatedUser.profile?.avatar,
                 bio: updatedUser.profile?.bio,
                 location: updatedUser.profile?.location,
@@ -263,8 +263,8 @@ export const updateProfile = async (req: Request, res: Response) => {
             },
             emailVerified: updatedUser.emailVerified || false,
             isActive: updatedUser.isActive || true,
-            createdAt: updatedUser._doc.createdAt,
-            updatedAt: updatedUser._doc.updatedAt
+            createdAt: updatedUser.get('createdAt'),
+            updatedAt: updatedUser.get('updatedAt')
         };
 
         res.status(200).json({
