@@ -181,11 +181,17 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     }
   }, [currentConceptIndex, courseData])
 
-  // On mount, check for showNext=1
+  // On mount, check for showNext=1 and reset quiz modal state
   useEffect(() => {
     if (searchParams?.get('showNext') === '1') {
       setShowNextButton(true)
     }
+    
+    // Reset quiz modal state on page load to prevent it from staying open after refresh
+    setShowQuizModal(false)
+    setShowReview(false)
+    setQuizScore(0)
+    setJustPassedQuiz(false)
   }, [searchParams])
 
 
@@ -494,6 +500,10 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     setQuizScore(score);
     setLastQuizPassed(passed);
     setShowReview(true); // Always show review for both passed and failed quizzes
+    
+    // Close the quiz modal to show results
+    setShowQuizModal(false);
+    
     if (passed) {
       setConceptProgress(prev => ({
         ...prev,
@@ -502,6 +512,14 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         isCompleted: true
       }));
       setJustPassedQuiz(true);
+      setShowNextButton(true);
+      
+      // Show success toast
+      toast({
+        title: "Quiz Passed! 🎉",
+        description: "Great job! You've successfully completed this concept!",
+        duration: 3000,
+      });
       
       // Refresh course data to update progress
       await loadCourseLearning();
@@ -513,6 +531,14 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         attempts: prev.attempts + 1
       }));
       setJustPassedQuiz(false);
+      setShowNextButton(false);
+      
+      // Show failure toast with retake option
+      toast({
+        title: "Quiz Failed",
+        description: "Don't worry! You can retake the quiz to improve your score.",
+        duration: 4000,
+      });
       
       // Refresh course data
       await loadCourseLearning();
@@ -520,38 +546,23 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   };
 
   const handleQuizClose = async (passed: boolean) => {
-    setShowQuizModal(false)
+    // This function is now mainly for handling the "Continue" button click from quiz results
     if (passed) {
-      setJustPassedQuiz(true)
-      setShowNextButton(true)
-      
-      // Show success toast
-      toast({
-        title: "Quiz Passed! 🎉",
-        description: "Great job! You've successfully completed this concept!",
-        duration: 3000,
-      })
+      // User clicked "Continue" after passing - show next button section
+      setShowNextButton(true);
+      setJustPassedQuiz(true);
       
       // Refresh course data to update progress
-      await loadCourseLearning()
+      await loadCourseLearning();
     } else {
-      // For failed quiz, show retake option
-      setJustPassedQuiz(false)
-      setShowNextButton(false)
+      // User clicked "Close" after failing - reset quiz state
+      setJustPassedQuiz(false);
+      setShowNextButton(false);
+      setQuizScore(0);
+      setShowReview(false);
       
-      // Show failure toast with retake option
-      toast({
-        title: "Quiz Failed",
-        description: "Don't worry! You can retake the quiz to improve your score.",
-        duration: 4000,
-      })
-      
-      // Reset quiz state for retake
-      setQuizScore(0)
-      setShowReview(false)
-      
-      await loadConceptProgress()
-      await loadCourseLearning()
+      await loadConceptProgress();
+      await loadCourseLearning();
     }
   }
 
@@ -1039,6 +1050,124 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
               showReview={showReview}
             />
           </div>
+        </div>
+      )}
+
+      {/* Quiz Results Display (when quiz is completed and modal is closed) */}
+      {!showQuizModal && quizScore > 0 && currentConcept?.quiz && (
+        <div className="mb-6">
+          <Card className="dark:bg-gray-800/80 dark:border-gray-700">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl text-gray-900 dark:text-white mb-4">Quiz Results</CardTitle>
+              
+              <div className="space-y-4">
+                <div className={`text-6xl font-bold ${lastQuizPassed ? 'text-green-600' : 'text-red-600'}`}>
+                  {quizScore}/{currentConcept.quiz.questions.length}
+                </div>
+                
+                <div className="text-xl text-gray-600 dark:text-gray-300">
+                  You scored {Math.round((quizScore / currentConcept.quiz.questions.length) * 100)}%
+                </div>
+                
+                <div className="flex items-center justify-center space-x-6">
+                  <Badge
+                    className={`${lastQuizPassed ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"}`}
+                  >
+                    {lastQuizPassed ? "Passed!" : "Failed"}
+                  </Badge>
+                  <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                    Passing Score: 75%
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            
+            {showReview && (
+              <CardContent>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Question Review:</h3>
+                  
+                  {currentConcept.quiz.questions.map((question: any, index: number) => {
+                    const isCorrect = question.answer === 0; // Assuming correct answer is always 0 for now
+                    
+                    return (
+                      <div
+                        key={question.questionId || index}
+                        className={`p-4 rounded-lg border ${
+                          isCorrect
+                            ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+                            : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+                        }`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          {isCorrect ? (
+                            <CheckCircle className="w-5 h-5 text-green-600 mt-1" />
+                          ) : (
+                            <X className="w-5 h-5 text-red-600 mt-1" />
+                          )}
+                          
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                              {index + 1}. {question.text}
+                            </h4>
+                            
+                            <div className="space-y-1 text-sm">
+                              {question.options.map((option: string, optionIndex: number) => (
+                                <div
+                                  key={optionIndex}
+                                  className={`p-2 rounded ${
+                                    optionIndex === question.answer
+                                      ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200"
+                                      : "text-gray-600 dark:text-gray-300"
+                                  }`}
+                                >
+                                  {optionIndex === question.answer && "✓ "}
+                                  {option}
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {question.explanation && (
+                              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                <p className="text-sm text-blue-800 dark:text-blue-200">
+                                  <strong>Explanation:</strong> {question.explanation}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            )}
+            
+            <CardContent>
+              <div className="flex justify-center gap-4 mt-6">
+                {lastQuizPassed ? (
+                  <Button onClick={() => handleQuizClose(true)} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Target className="w-4 h-4 mr-2" />
+                    Continue
+                  </Button>
+                ) : (
+                  <>
+                    <Button 
+                      onClick={() => setShowQuizModal(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Retake Quiz
+                    </Button>
+                    <Button onClick={() => handleQuizClose(false)} variant="outline">
+                      <X className="w-4 h-4 mr-2" />
+                      Close
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
