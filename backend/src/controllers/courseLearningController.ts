@@ -814,6 +814,18 @@ export class CourseLearningController {
       const hasNextPage = currentIndex < totalConcepts - 1;
       const hasPrevPage = currentIndex > 0;
 
+      // Recalculate overall progress based on actual completed concepts
+      const completedConcepts = sequentialConcepts.filter(c => c.status === 'completed').length;
+      const calculatedOverallProgress = totalConcepts > 0 ? Math.round((completedConcepts / totalConcepts) * 100) : 0;
+      
+      // Update the stored progress if it's different
+      if (userProgress.overallProgress !== calculatedOverallProgress) {
+        userProgress.overallProgress = calculatedOverallProgress;
+        userProgress.conceptsCompleted = completedConcepts;
+        userProgress.totalConcepts = totalConcepts;
+        await userProgress.save();
+      }
+
       // Check if all concepts are completed by the user
       const allCompleted = sequentialConcepts.length > 0 && sequentialConcepts.every(c => c.status === 'completed');
 
@@ -830,8 +842,8 @@ export class CourseLearningController {
           },
           userProgress: {
             status: userProgress.status,
-            overallProgress: userProgress.overallProgress,
-            conceptsCompleted: userProgress.conceptsCompleted,
+            overallProgress: calculatedOverallProgress,
+            conceptsCompleted: completedConcepts,
             totalConcepts: totalConcepts,
             totalTimeSpent: userProgress.totalTimeSpent,
             enrolledAt: userProgress.enrolledAt,

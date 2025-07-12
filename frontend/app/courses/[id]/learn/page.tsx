@@ -41,6 +41,7 @@ import {
   Code,
   X,
   XCircle,
+  RotateCcw,
 } from "lucide-react"
 import { apiClient } from "@/lib/api"
 import { useAuthStore } from "@/lib/auth"
@@ -106,6 +107,8 @@ interface CourseLearning {
     status: string
     lastAccessedAt: string
     timeSpent: number
+    conceptsCompleted: number
+    totalConcepts: number
   }
   sequentialConcepts: Concept[]
   currentConcept: string
@@ -160,7 +163,6 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   const [justPassedQuiz, setJustPassedQuiz] = useState(false)
   const [markingContent, setMarkingContent] = useState(false)
   const [markingVideo, setMarkingVideo] = useState(false)
-  const [redirectCountdown, setRedirectCountdown] = useState(0)
   
   const { user } = useAuthStore()
   const router = useRouter()
@@ -186,12 +188,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     }
   }, [searchParams])
 
-  // Cleanup countdown on unmount
-  useEffect(() => {
-    return () => {
-      setRedirectCountdown(0)
-    }
-  }, [])
+
 
   const loadCourseLearning = async (page: number = 1) => {
     try {
@@ -496,7 +493,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     if (!courseData || !courseData.sequentialConcepts[currentConceptIndex]) return;
     setQuizScore(score);
     setLastQuizPassed(passed);
-    setShowReview(passed);
+    setShowReview(true); // Always show review for both passed and failed quizzes
     if (passed) {
       setConceptProgress(prev => ({
         ...prev,
@@ -509,16 +506,11 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       // Refresh course data to update progress
       await loadCourseLearning();
     } else {
-      // Reset backend progress
-      const concept = courseData.sequentialConcepts[currentConceptIndex];
-      await apiClient.resetConceptProgress(concept._id, resolvedParams.id);
+      // For failed quiz, don't reset backend progress immediately
+      // Let user decide to retake or continue
       setConceptProgress(prev => ({
         ...prev,
-        descriptionRead: false,
-        videoWatched: false,
-        contentRead: false,
-        quizPassed: false,
-        isCompleted: false
+        attempts: prev.attempts + 1
       }));
       setJustPassedQuiz(false);
       
@@ -536,38 +528,30 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       // Show success toast
       toast({
         title: "Quiz Passed! 🎉",
-        description: "Great job! You've successfully completed this concept. Redirecting to the next concept...",
+        description: "Great job! You've successfully completed this concept!",
         duration: 3000,
       })
       
-      // Auto-redirect to next concept after a short delay
-      const nextConcept = getNextConcept()
-      if (nextConcept) {
-        // Start countdown
-        setRedirectCountdown(3)
-        const countdownInterval = setInterval(() => {
-          setRedirectCountdown((prev) => {
-            if (prev <= 1) {
-              clearInterval(countdownInterval)
-              router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
-              setShowNextButton(false)
-              return 0
-            }
-            return prev - 1
-          })
-        }, 1000)
-      } else {
-        // If no next concept, show completion message
-        toast({
-          title: "Course Completed! 🏆",
-          description: "Congratulations! You've completed all concepts in this course.",
-          duration: 5000,
-        })
-      }
+      // Refresh course data to update progress
+      await loadCourseLearning()
     } else {
+      // For failed quiz, show retake option
+      setJustPassedQuiz(false)
+      setShowNextButton(false)
+      
+      // Show failure toast with retake option
+      toast({
+        title: "Quiz Failed",
+        description: "Don't worry! You can retake the quiz to improve your score.",
+        duration: 4000,
+      })
+      
+      // Reset quiz state for retake
+      setQuizScore(0)
+      setShowReview(false)
+      
       await loadConceptProgress()
       await loadCourseLearning()
-      setShowNextButton(false)
     }
   }
 
@@ -672,7 +656,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                 {course.title}
               </h1>
               <p className="text-gray-600 dark:text-gray-300">
-                Learning Progress: {userProgress.overallProgress}%
+                Learning Progress: {userProgress.conceptsCompleted || 0}/{userProgress.totalConcepts || 0} concepts completed ({userProgress.overallProgress}%)
               </p>
             </div>
             <div className="flex items-center gap-4 flex-shrink-0">
@@ -971,7 +955,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-green-700 dark:text-green-300">Overall Progress</span>
                         <span className="text-sm font-semibold text-green-800 dark:text-green-200">
-                          {userProgress.overallProgress}%
+                          {userProgress.conceptsCompleted || 0}/{userProgress.totalConcepts || 0} ({userProgress.overallProgress}%)
                         </span>
                       </div>
                       <Progress value={userProgress.overallProgress} className="h-2" />
@@ -1059,27 +1043,85 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       )}
 
       {/* Next Button after passing quiz */}
-      {showNextButton && nextConcept && (
+      {showNextButton && (
         <div className="mb-6">
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
             <div className="flex items-center justify-center gap-2 text-green-800 dark:text-green-200">
               <CheckCircle className="w-5 h-5" />
               <span className="font-medium">
-                Quiz completed successfully! Auto-redirecting to next concept in {redirectCountdown} seconds...
+                Quiz completed successfully! {nextConcept ? 'Ready to continue to the next concept.' : 'Congratulations! You have completed all concepts in this course!'}
               </span>
             </div>
           </div>
-          <Button
-            onClick={() => {
-              router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
-              setShowNextButton(false)
-            }}
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
-            size="lg"
-          >
-            <ArrowRight className="w-5 h-5 mr-2" />
-            Continue to Next Concept: {nextConcept.title}
-          </Button>
+          <div className="flex gap-4">
+            <Button
+              onClick={() => setShowQuizModal(true)}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              size="lg"
+            >
+              <Target className="w-5 h-5 mr-2" />
+              Retake Quiz
+            </Button>
+            {nextConcept ? (
+              <Button
+                onClick={() => {
+                  router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
+                  setShowNextButton(false)
+                  setJustPassedQuiz(false)
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                size="lg"
+              >
+                <ArrowRight className="w-5 h-5 mr-2" />
+                Continue to Next Concept: {nextConcept.title}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => router.push(`/courses/${resolvedParams.id}`)}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                size="lg"
+              >
+                <Trophy className="w-5 h-5 mr-2" />
+                Back to Course Dashboard
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Failed Quiz Retake Section */}
+      {!showNextButton && !lastQuizPassed && quizScore > 0 && (
+        <div className="mb-6">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-center gap-2 text-red-800 dark:text-red-200">
+              <XCircle className="w-5 h-5" />
+              <span className="font-medium">
+                Quiz score: {quizScore}/{currentConcept?.quiz?.questions?.length || 0} ({Math.round((quizScore / (currentConcept?.quiz?.questions?.length || 1)) * 100)}%). You need 75% to pass.
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <Button
+              onClick={() => setShowQuizModal(true)}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              size="lg"
+            >
+              <RotateCcw className="w-5 h-5 mr-2" />
+              Retake Quiz
+            </Button>
+            <Button
+              onClick={() => {
+                setQuizScore(0)
+                setLastQuizPassed(true)
+                setShowReview(false)
+              }}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white"
+              size="lg"
+            >
+              <X className="w-5 h-5 mr-2" />
+              Clear Results
+            </Button>
+          </div>
         </div>
       )}
     </div>

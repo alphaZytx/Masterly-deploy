@@ -429,7 +429,7 @@ export function QuizPlatform({
           </div>
         </CardHeader>
 
-        {showReview && didPass && (
+        {showReview && (
         <CardContent>
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Question Review:</h3>
@@ -495,21 +495,51 @@ export function QuizPlatform({
         )}
 
         <CardContent>
-          <div className="flex justify-center mt-6">
+          <div className="flex justify-center gap-4 mt-6">
             {onQuizClose && (
-              <Button onClick={() => onQuizClose(didPass)} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Saving...
-                  </>
+              <>
+                {didPass ? (
+                  <Button onClick={() => onQuizClose(didPass)} disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Target className="w-4 h-4 mr-2" />
+                        Continue
+                      </>
+                    )}
+                  </Button>
                 ) : (
                   <>
-                <Target className="w-4 h-4 mr-2" />
-                    Continue
+                    <Button 
+                      onClick={() => {
+                        // Reset quiz state for retake
+                        setCurrentQuestion(0)
+                        setSelectedAnswers([])
+                        setQuestionTimeLeft(20)
+                        setIsActive(false)
+                        setShowResults(false)
+                        setQuizStarted(false)
+                        setQuestionLocked(false)
+                        setCopyAttempts(0)
+                        setWarningCount(0)
+                        setQuestionTimedOut(false)
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Retake Quiz
+                    </Button>
+                    <Button onClick={() => onQuizClose(didPass)} variant="outline">
+                      <X className="w-4 h-4 mr-2" />
+                      Close
+                    </Button>
                   </>
                 )}
-            </Button>
+              </>
             )}
           </div>
         </CardContent>
