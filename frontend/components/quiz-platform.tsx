@@ -32,7 +32,7 @@ interface Quiz {
 
 interface QuizPlatformProps {
   quiz: Quiz
-  onQuizComplete?: (score: number, passed: boolean) => void
+  onQuizComplete?: (score: number, passed: boolean, userAnswers?: number[]) => void
   onQuizClose?: (passed: boolean) => void
   showModal?: boolean
   allowRetake?: boolean
@@ -290,7 +290,7 @@ export function QuizPlatform({
     
     // Call the completion callback
     if (onQuizComplete) {
-      onQuizComplete(finalScore, didPass)
+      onQuizComplete(finalScore, didPass, selectedAnswers)
     }
     
     // Submit to backend if we have the required IDs

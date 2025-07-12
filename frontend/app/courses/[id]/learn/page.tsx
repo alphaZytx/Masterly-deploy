@@ -159,6 +159,8 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   const [quizScore, setQuizScore] = useState(0)
   const [showReview, setShowReview] = useState(true)
   const [lastQuizPassed, setLastQuizPassed] = useState(true)
+  const [showQuizResults, setShowQuizResults] = useState(false)
+  const [quizResults, setQuizResults] = useState<{score: number, passed: boolean, userAnswers?: number[]} | null>(null)
 
   const [markingContent, setMarkingContent] = useState(false)
   const [markingVideo, setMarkingVideo] = useState(false)
@@ -186,6 +188,8 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     setShowQuizModal(false)
     setShowReview(false)
     setQuizScore(0)
+    setShowQuizResults(false)
+    setQuizResults(null)
   }, [])
 
 
@@ -489,8 +493,14 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     }
   }
 
-  const handleQuizComplete = async (score: number, passed: boolean) => {
+  const handleQuizComplete = async (score: number, passed: boolean, userAnswers?: number[]) => {
     if (!courseData || !courseData.sequentialConcepts[currentConceptIndex]) return;
+    
+    // Store quiz results and show them outside the modal
+    setQuizResults({ score, passed, userAnswers });
+    setShowQuizResults(true);
+    setShowQuizModal(false); // Close the modal
+    
     setQuizScore(score);
     setLastQuizPassed(passed);
     setShowReview(passed); // Only show review if passed
@@ -540,6 +550,8 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       // Return to current concept (reset everything)
       setQuizScore(0);
       setShowReview(false);
+      setShowQuizResults(false);
+      setQuizResults(null);
       await loadConceptProgress();
       await loadCourseLearning();
     }
@@ -867,6 +879,150 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                       </p>
                     </div>
                   </div>
+                  
+                  {/* Quiz Results Display */}
+                  {showQuizResults && quizResults && (
+                    <div className="mb-6">
+                      <Card className={`dark:bg-gray-800/80 dark:border-gray-700 max-w-4xl mx-auto ${quizResults.passed ? 'border-green-500' : 'border-red-500'}`}>
+                        <CardHeader className="text-center">
+                          <CardTitle className="text-2xl text-gray-900 dark:text-white mb-4">Quiz Results</CardTitle>
+
+                          <div className="space-y-4">
+                            <div className={`text-6xl font-bold ${quizResults.passed ? 'text-green-600' : 'text-red-600'}`}>
+                              {quizResults.score}/{currentConcept?.quiz?.questions?.length || 0}
+                            </div>
+
+                            <div className="text-xl text-gray-600 dark:text-gray-300">You scored {Math.round((quizResults.score / (currentConcept?.quiz?.questions?.length || 1)) * 100)}%</div>
+
+                            <div className="flex items-center justify-center space-x-6">
+                              <Badge className={`${quizResults.passed ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"}`}>
+                                {quizResults.passed ? "Passed!" : "Failed"}
+                              </Badge>
+                              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                Passing Score: 75%
+                              </Badge>
+                            </div>
+                            
+                            {!quizResults.passed && (
+                              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                                <p className="text-red-800 dark:text-red-200 text-center font-medium">
+                                  Don't worry! Every failure is a step towards success. Keep learning and try again! 💪
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </CardHeader>
+
+                        {quizResults.passed && (
+                          <CardContent>
+                            <div className="space-y-4">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Question Review:</h3>
+
+                              {currentConcept?.quiz?.questions?.map((question: any, index: number) => {
+                                const userAnswer = quizResults.userAnswers?.[index];
+                                const isCorrect = userAnswer === question.answer;
+
+                                return (
+                                  <div
+                                    key={question.questionId || index}
+                                    className={`p-4 rounded-lg border ${
+                                      isCorrect
+                                        ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+                                        : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+                                    }`}
+                                  >
+                                    <div className="flex items-start space-x-3">
+                                      {isCorrect ? (
+                                        <CheckCircle className="w-5 h-5 text-green-600 mt-1" />
+                                      ) : (
+                                        <X className="w-5 h-5 text-red-600 mt-1" />
+                                      )}
+
+                                      <div className="flex-1">
+                                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                                          {index + 1}. {question.text}
+                                        </h4>
+
+                                        <div className="space-y-1 text-sm">
+                                          {question.options.map((option: string, optionIndex: number) => (
+                                            <div
+                                              key={optionIndex}
+                                              className={`p-2 rounded ${
+                                                optionIndex === question.answer
+                                                  ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200"
+                                                  : optionIndex === userAnswer && userAnswer !== question.answer
+                                                    ? "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
+                                                    : "text-gray-600 dark:text-gray-300"
+                                              }`}
+                                            >
+                                              {optionIndex === question.answer && "✓ "}
+                                              {optionIndex === userAnswer && userAnswer !== question.answer && "✗ "}
+                                              {option}
+                                            </div>
+                                          ))}
+                                        </div>
+                                          
+                                        {question.explanation && (
+                                          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                                              <strong>Explanation:</strong> {question.explanation}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </CardContent>
+                        )}
+
+                        <CardContent>
+                          <div className="flex justify-center mt-6">
+                            {quizResults.passed ? (
+                              <Button 
+                                onClick={() => {
+                                  const nextConcept = getNextConcept();
+                                  if (nextConcept) {
+                                    setShowQuizResults(false);
+                                    setQuizResults(null);
+                                    router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`);
+                                  } else {
+                                    router.push(`/courses/${resolvedParams.id}`);
+                                  }
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <ArrowRight className="w-4 h-4 mr-2" />
+                                Go to Next Course
+                              </Button>
+                            ) : (
+                              <Button 
+                                onClick={() => {
+                                  setShowQuizResults(false);
+                                  setQuizResults(null);
+                                  // Reset progress and stay on current concept
+                                  setConceptProgress(prev => ({
+                                    ...prev,
+                                    descriptionRead: false,
+                                    videoWatched: false,
+                                    contentRead: false,
+                                    quizPassed: false,
+                                    isCompleted: false
+                                  }));
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Return Back to Course
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
                       </div>
                       
                 {/* Step 5: Next Button - Only show after quiz completion */}
