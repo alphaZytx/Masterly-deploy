@@ -164,6 +164,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
 
   const [markingContent, setMarkingContent] = useState(false)
   const [markingVideo, setMarkingVideo] = useState(false)
+  const [nextConcept, setNextConcept] = useState<any>(null)
   
   const { user } = useAuthStore()
   const router = useRouter()
@@ -662,16 +663,17 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
 
   const { course, userProgress, sequentialConcepts } = courseData
   const currentConcept = sequentialConcepts[currentConceptIndex]
-  const [nextConcept, setNextConcept] = useState<any>(null)
 
   // Load next concept when current concept changes
   useEffect(() => {
-    const loadNextConcept = async () => {
-      const next = await getNextConcept()
-      setNextConcept(next)
+    if (courseData && currentConcept?._id) {
+      const loadNextConcept = async () => {
+        const next = await getNextConcept()
+        setNextConcept(next)
+      }
+      loadNextConcept()
     }
-    loadNextConcept()
-  }, [currentConcept?._id])
+  }, [courseData, currentConcept?._id])
   
   // Comprehensive console logging for debugging
   console.log('=== CURRENT CONCEPT FULL DATA ===')
