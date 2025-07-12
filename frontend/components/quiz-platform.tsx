@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, X, Clock, Trophy, RotateCcw, ArrowRight, Target, AlertTriangle } from "lucide-react"
+import { CheckCircle, X, Clock, Trophy, RotateCcw, ArrowRight, ArrowLeft, Target, AlertTriangle } from "lucide-react"
 import { apiClient } from "@/lib/api"
 
 interface Question {
@@ -405,12 +405,12 @@ export function QuizPlatform({
     const didPass = percentage >= passingScore
 
     return (
-      <Card className="dark:bg-gray-800/80 dark:border-gray-700 max-w-4xl mx-auto">
+      <Card className={`dark:bg-gray-800/80 dark:border-gray-700 max-w-4xl mx-auto ${didPass ? 'border-green-500' : 'border-red-500'}`}>
         <CardHeader className="text-center">
           <CardTitle className="text-2xl text-gray-900 dark:text-white mb-4">Quiz Results</CardTitle>
 
           <div className="space-y-4">
-            <div className={`text-6xl font-bold ${getScoreColor(score, total)}`}>
+            <div className={`text-6xl font-bold ${didPass ? 'text-green-600' : 'text-red-600'}`}>
               {score}/{total}
             </div>
 
@@ -426,10 +426,18 @@ export function QuizPlatform({
                 Passing Score: {passingScore}%
               </Badge>
             </div>
+            
+            {!didPass && (
+              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                <p className="text-red-800 dark:text-red-200 text-center font-medium">
+                  Don't worry! Every failure is a step towards success. Keep learning and try again! 💪
+                </p>
+              </div>
+            )}
           </div>
         </CardHeader>
 
-        {showReview && (
+        {showReview && didPass && (
         <CardContent>
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Question Review:</h3>
@@ -495,11 +503,11 @@ export function QuizPlatform({
         )}
 
         <CardContent>
-          <div className="flex justify-center gap-4 mt-6">
+          <div className="flex justify-center mt-6">
             {onQuizClose && (
               <>
                 {didPass ? (
-                  <Button onClick={() => onQuizClose(didPass)} disabled={isSubmitting}>
+                  <Button onClick={() => onQuizClose(didPass)} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700 text-white">
                     {isSubmitting ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -507,37 +515,16 @@ export function QuizPlatform({
                       </>
                     ) : (
                       <>
-                        <Target className="w-4 h-4 mr-2" />
-                        Continue
+                        <ArrowRight className="w-4 h-4 mr-2" />
+                        Go to Next Course
                       </>
                     )}
                   </Button>
                 ) : (
-                  <>
-                    <Button 
-                      onClick={() => {
-                        // Reset quiz state for retake
-                        setCurrentQuestion(0)
-                        setSelectedAnswers([])
-                        setQuestionTimeLeft(20)
-                        setIsActive(false)
-                        setShowResults(false)
-                        setQuizStarted(false)
-                        setQuestionLocked(false)
-                        setCopyAttempts(0)
-                        setWarningCount(0)
-                        setQuestionTimedOut(false)
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Retake Quiz
-                    </Button>
-                    <Button onClick={() => onQuizClose(didPass)} variant="outline">
-                      <X className="w-4 h-4 mr-2" />
-                      Close
-                    </Button>
-                  </>
+                  <Button onClick={() => onQuizClose(didPass)} className="bg-red-600 hover:bg-red-700 text-white">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Return Back to Course
+                  </Button>
                 )}
               </>
             )}

@@ -159,8 +159,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   const [quizScore, setQuizScore] = useState(0)
   const [showReview, setShowReview] = useState(true)
   const [lastQuizPassed, setLastQuizPassed] = useState(true)
-  const [showNextButton, setShowNextButton] = useState(false)
-  const [justPassedQuiz, setJustPassedQuiz] = useState(false)
+
   const [markingContent, setMarkingContent] = useState(false)
   const [markingVideo, setMarkingVideo] = useState(false)
   
@@ -181,18 +180,13 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     }
   }, [currentConceptIndex, courseData])
 
-  // On mount, check for showNext=1 and reset quiz modal state
+  // On mount, reset quiz modal state
   useEffect(() => {
-    if (searchParams?.get('showNext') === '1') {
-      setShowNextButton(true)
-    }
-    
     // Reset quiz modal state on page load to prevent it from staying open after refresh
     setShowQuizModal(false)
     setShowReview(false)
     setQuizScore(0)
-    setJustPassedQuiz(false)
-  }, [searchParams])
+  }, [])
 
 
 
@@ -499,10 +493,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     if (!courseData || !courseData.sequentialConcepts[currentConceptIndex]) return;
     setQuizScore(score);
     setLastQuizPassed(passed);
-    setShowReview(true); // Always show review for both passed and failed quizzes
-    
-    // Close the quiz modal to show results
-    setShowQuizModal(false);
+    setShowReview(passed); // Only show review if passed
     
     if (passed) {
       setConceptProgress(prev => ({
@@ -511,34 +502,22 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         attempts: prev.attempts + 1,
         isCompleted: true
       }));
-      setJustPassedQuiz(true);
-      setShowNextButton(true);
-      
-      // Show success toast
-      toast({
-        title: "Quiz Passed! 🎉",
-        description: "Great job! You've successfully completed this concept!",
-        duration: 3000,
-      });
       
       // Refresh course data to update progress
       await loadCourseLearning();
     } else {
-      // For failed quiz, don't reset backend progress immediately
-      // Let user decide to retake or continue
+      // For failed quiz, reset progress
+      const concept = courseData.sequentialConcepts[currentConceptIndex];
+      await apiClient.resetConceptProgress(concept._id, resolvedParams.id);
       setConceptProgress(prev => ({
         ...prev,
+        descriptionRead: false,
+        videoWatched: false,
+        contentRead: false,
+        quizPassed: false,
+        isCompleted: false,
         attempts: prev.attempts + 1
       }));
-      setJustPassedQuiz(false);
-      setShowNextButton(false);
-      
-      // Show failure toast with retake option
-      toast({
-        title: "Quiz Failed",
-        description: "Don't worry! You can retake the quiz to improve your score.",
-        duration: 4000,
-      });
       
       // Refresh course data
       await loadCourseLearning();
@@ -546,21 +525,21 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   };
 
   const handleQuizClose = async (passed: boolean) => {
-    // This function is now mainly for handling the "Continue" button click from quiz results
+    setShowQuizModal(false);
+    
     if (passed) {
-      // User clicked "Continue" after passing - show next button section
-      setShowNextButton(true);
-      setJustPassedQuiz(true);
-      
-      // Refresh course data to update progress
-      await loadCourseLearning();
+      // Go to next concept
+      const nextConcept = getNextConcept();
+      if (nextConcept) {
+        router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`);
+      } else {
+        // Course completed
+        router.push(`/courses/${resolvedParams.id}`);
+      }
     } else {
-      // User clicked "Close" after failing - reset quiz state
-      setJustPassedQuiz(false);
-      setShowNextButton(false);
+      // Return to current concept (reset everything)
       setQuizScore(0);
       setShowReview(false);
-      
       await loadConceptProgress();
       await loadCourseLearning();
     }
@@ -862,23 +841,32 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                     setVideoExpanded={setVideoExpanded}
                   />
                   {/* Quiz Section */}
-                  <QuizSection
-                    quiz={currentConcept.quiz}
-                    canTakeQuiz={currentConcept.canTakeQuiz || false}
-                    onStartQuiz={handleQuizStart}
-                    quizLoading={quizLoading}
-                    onQuizComplete={handleQuizComplete}
-                    showReview={showReview}
-                    quizScore={quizScore}
-                    lastQuizPassed={lastQuizPassed}
-                    justPassedQuiz={justPassedQuiz}
-                    setJustPassedQuiz={setJustPassedQuiz}
-                    setQuizScore={setQuizScore}
-                    setShowReview={setShowReview}
-                    setShowQuizModal={setShowQuizModal}
-                    showQuizModal={showQuizModal}
-                    handleQuizClose={handleQuizClose}
-                  />
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <TestTube className="w-5 h-5" />
+                        Practice Quiz ({currentConcept?.quiz?.questions?.length || 0} questions)
+                      </h4>
+                      <Button
+                        onClick={handleQuizStart}
+                        disabled={quizLoading}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {quizLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <TestTube className="w-4 h-4 mr-2" />
+                        )}
+                        {quizLoading ? 'Taking Quiz...' : 'Start Quiz'}
+                      </Button>
+                    </div>
+                    
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                      <p className="text-blue-800 dark:text-blue-200 text-sm">
+                        Complete the quiz to unlock the next concept. You need to score at least 75% to pass.
+                      </p>
+                    </div>
+                  </div>
                       </div>
                       
                 {/* Step 5: Next Button - Only show after quiz completion */}
@@ -1053,206 +1041,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         </div>
       )}
 
-      {/* Quiz Results Display (when quiz is completed and modal is closed) */}
-      {!showQuizModal && quizScore > 0 && currentConcept?.quiz && (
-        <div className="mb-6">
-          <Card className="dark:bg-gray-800/80 dark:border-gray-700">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl text-gray-900 dark:text-white mb-4">Quiz Results</CardTitle>
-              
-              <div className="space-y-4">
-                <div className={`text-6xl font-bold ${lastQuizPassed ? 'text-green-600' : 'text-red-600'}`}>
-                  {quizScore}/{currentConcept.quiz.questions.length}
-                </div>
-                
-                <div className="text-xl text-gray-600 dark:text-gray-300">
-                  You scored {Math.round((quizScore / currentConcept.quiz.questions.length) * 100)}%
-                </div>
-                
-                <div className="flex items-center justify-center space-x-6">
-                  <Badge
-                    className={`${lastQuizPassed ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"}`}
-                  >
-                    {lastQuizPassed ? "Passed!" : "Failed"}
-                  </Badge>
-                  <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                    Passing Score: 75%
-                  </Badge>
-                </div>
-              </div>
-            </CardHeader>
-            
-            {showReview && (
-              <CardContent>
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Question Review:</h3>
-                  
-                  {currentConcept.quiz.questions.map((question: any, index: number) => {
-                    const isCorrect = question.answer === 0; // Assuming correct answer is always 0 for now
-                    
-                    return (
-                      <div
-                        key={question.questionId || index}
-                        className={`p-4 rounded-lg border ${
-                          isCorrect
-                            ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
-                            : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
-                        }`}
-                      >
-                        <div className="flex items-start space-x-3">
-                          {isCorrect ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 mt-1" />
-                          ) : (
-                            <X className="w-5 h-5 text-red-600 mt-1" />
-                          )}
-                          
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                              {index + 1}. {question.text}
-                            </h4>
-                            
-                            <div className="space-y-1 text-sm">
-                              {question.options.map((option: string, optionIndex: number) => (
-                                <div
-                                  key={optionIndex}
-                                  className={`p-2 rounded ${
-                                    optionIndex === question.answer
-                                      ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200"
-                                      : "text-gray-600 dark:text-gray-300"
-                                  }`}
-                                >
-                                  {optionIndex === question.answer && "✓ "}
-                                  {option}
-                                </div>
-                              ))}
-                            </div>
-                            
-                            {question.explanation && (
-                              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                <p className="text-sm text-blue-800 dark:text-blue-200">
-                                  <strong>Explanation:</strong> {question.explanation}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            )}
-            
-            <CardContent>
-              <div className="flex justify-center gap-4 mt-6">
-                {lastQuizPassed ? (
-                  <Button onClick={() => handleQuizClose(true)} className="bg-green-600 hover:bg-green-700 text-white">
-                    <Target className="w-4 h-4 mr-2" />
-                    Continue
-                  </Button>
-                ) : (
-                  <>
-                    <Button 
-                      onClick={() => setShowQuizModal(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Retake Quiz
-                    </Button>
-                    <Button onClick={() => handleQuizClose(false)} variant="outline">
-                      <X className="w-4 h-4 mr-2" />
-                      Close
-                    </Button>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
-      {/* Next Button after passing quiz */}
-      {showNextButton && (
-        <div className="mb-6">
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
-            <div className="flex items-center justify-center gap-2 text-green-800 dark:text-green-200">
-              <CheckCircle className="w-5 h-5" />
-              <span className="font-medium">
-                Quiz completed successfully! {nextConcept ? 'Ready to continue to the next concept.' : 'Congratulations! You have completed all concepts in this course!'}
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <Button
-              onClick={() => setShowQuizModal(true)}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              size="lg"
-            >
-              <Target className="w-5 h-5 mr-2" />
-              Retake Quiz
-            </Button>
-            {nextConcept ? (
-              <Button
-                onClick={() => {
-                  router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
-                  setShowNextButton(false)
-                  setJustPassedQuiz(false)
-                }}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                size="lg"
-              >
-                <ArrowRight className="w-5 h-5 mr-2" />
-                Continue to Next Concept: {nextConcept.title}
-              </Button>
-            ) : (
-              <Button
-                onClick={() => router.push(`/courses/${resolvedParams.id}`)}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                size="lg"
-              >
-                <Trophy className="w-5 h-5 mr-2" />
-                Back to Course Dashboard
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Failed Quiz Retake Section */}
-      {!showNextButton && !lastQuizPassed && quizScore > 0 && (
-        <div className="mb-6">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-4">
-            <div className="flex items-center justify-center gap-2 text-red-800 dark:text-red-200">
-              <XCircle className="w-5 h-5" />
-              <span className="font-medium">
-                Quiz score: {quizScore}/{currentConcept?.quiz?.questions?.length || 0} ({Math.round((quizScore / (currentConcept?.quiz?.questions?.length || 1)) * 100)}%). You need 75% to pass.
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <Button
-              onClick={() => setShowQuizModal(true)}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              size="lg"
-            >
-              <RotateCcw className="w-5 h-5 mr-2" />
-              Retake Quiz
-            </Button>
-            <Button
-              onClick={() => {
-                setQuizScore(0)
-                setLastQuizPassed(true)
-                setShowReview(false)
-              }}
-              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white"
-              size="lg"
-            >
-              <X className="w-5 h-5 mr-2" />
-              Clear Results
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
 } 
@@ -1281,24 +1070,6 @@ interface VideoSectionProps {
   handleVideoWatch: () => void;
   videoExpanded: boolean;
   setVideoExpanded: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-interface QuizSectionProps {
-  quiz: any;
-  canTakeQuiz: boolean;
-  onStartQuiz: () => void;
-  quizLoading: boolean;
-  onQuizComplete: (score: number, passed: boolean) => void;
-  showReview: boolean;
-  quizScore: number;
-  lastQuizPassed: boolean;
-  justPassedQuiz: boolean;
-  setJustPassedQuiz: React.Dispatch<React.SetStateAction<boolean>>;
-  setQuizScore: React.Dispatch<React.SetStateAction<number>>;
-  setShowReview: React.Dispatch<React.SetStateAction<boolean>>;
-  setShowQuizModal: React.Dispatch<React.SetStateAction<boolean>>;
-  showQuizModal: boolean;
-  handleQuizClose: (passed: boolean) => Promise<void>;
 }
 
 // Update ContentSection to use props and contentExpanded/setContentExpanded
@@ -1491,34 +1262,4 @@ const VideoSection = memo(function VideoSection(props: VideoSectionProps) {
     )
 })
 
-const QuizSection = memo(function QuizSection(props: QuizSectionProps) {
-  const { quiz, canTakeQuiz, onStartQuiz, quizLoading, onQuizComplete, showReview, quizScore, lastQuizPassed, justPassedQuiz, setJustPassedQuiz, setQuizScore, setShowReview, setShowQuizModal, showQuizModal, handleQuizClose } = props;
-  return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="font-semibold flex items-center gap-2">
-          <TestTube className="w-5 h-5" />
-          Practice Quiz ({quiz?.questions?.length || 0} questions)
-        </h4>
-                  <Button
-          onClick={onStartQuiz}
-          disabled={quizLoading}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          {quizLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-          ) : (
-            <TestTube className="w-4 h-4 mr-2" />
-          )}
-          {quizLoading ? 'Taking Quiz...' : 'Start Quiz'}
-                  </Button>
-                </div>
-      
-      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-        <p className="text-blue-800 dark:text-blue-200 text-sm">
-          Complete the quiz to unlock the next concept. You need to score at least 75% to pass.
-        </p>
-      </div>
-    </div>
-  )
-}) 
+ 
