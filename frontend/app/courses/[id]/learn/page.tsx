@@ -125,7 +125,7 @@ interface LearningPageProps {
 }
 
 export default function DynamicLearningPage({ params }: LearningPageProps) {
-  const resolvedParams = React.use(params)
+  const [courseId, setCourseId] = useState<string | null>(null)
   const [courseData, setCourseData] = useState<CourseLearning | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -172,9 +172,24 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   const { toast } = useToast()
   const { isLoading, setLoading: setGlobalLoading } = useContext(GlobalLoadingContext)
 
+  // Resolve params safely
   useEffect(() => {
-    loadCourseLearning()
-  }, [resolvedParams.id])
+    const resolveParams = async () => {
+      try {
+        const resolved = await params
+        setCourseId(resolved.id)
+      } catch (error) {
+        console.error('Failed to resolve params:', error)
+      }
+    }
+    resolveParams()
+  }, [params])
+
+  useEffect(() => {
+    if (courseId) {
+      loadCourseLearning()
+    }
+  }, [courseId])
 
   useEffect(() => {
     if (courseData && courseData.sequentialConcepts[currentConceptIndex]) {
@@ -192,14 +207,14 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     setQuizResults(null)
   }, [])
 
-
-
   const loadCourseLearning = async (page: number = 1) => {
+    if (!courseId) return
+    
     try {
       setLoading(true)
       
       // First get the course dashboard to get the current concept
-      const dashboardResponse = await apiClient.getCourseDashboard(resolvedParams.id)
+      const dashboardResponse = await apiClient.getCourseDashboard(courseId)
       
       if (!dashboardResponse.success) {
         setError(dashboardResponse.message || 'Failed to load course dashboard')
@@ -238,7 +253,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       })
 
       // Now fetch the full concept content
-      const conceptResponse = await apiClient.getConceptLearningPage(resolvedParams.id, currentConcept._id)
+      const conceptResponse = await apiClient.getConceptLearningPage(courseId, currentConcept._id)
       
       if (!conceptResponse.success) {
         setError(conceptResponse.message || 'Failed to load concept content')
@@ -281,13 +296,13 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   }
 
   const loadConceptProgress = async () => {
-    if (!courseData || !courseData.sequentialConcepts[currentConceptIndex]) return
+    if (!courseData || !courseData.sequentialConcepts[currentConceptIndex] || !courseId) return
     
     const concept = courseData.sequentialConcepts[currentConceptIndex]
     
     try {
       // Fetch actual progress from backend
-      const response = await apiClient.getCourseDashboard(resolvedParams.id)
+      const response = await apiClient.getCourseDashboard(courseId)
       
       if (response.success && response.data.sequentialConcepts) {
         const conceptWithProgress = response.data.sequentialConcepts.find(
@@ -296,7 +311,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         
         if (conceptWithProgress) {
           // Get the actual progress from UserConceptProgress using API client
-          const progressResponse = await apiClient.getConceptProgress(concept._id, resolvedParams.id)
+          const progressResponse = await apiClient.getConceptProgress(concept._id, courseId)
           
           if (progressResponse.success) {
             setConceptProgress({
@@ -335,11 +350,13 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   }
 
   const loadLearningGraph = async () => {
+    if (!courseId) return
+    
     try {
       setLoadingGraph(true)
       
       // Use the course dashboard API to get all concepts
-      const response: any = await apiClient.getCourseDashboard(resolvedParams.id)
+      const response: any = await apiClient.getCourseDashboard(courseId)
       
       if (response.success && response.data.sequentialConcepts) {
         // Get all concepts from the dashboard data
@@ -399,12 +416,12 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   }
 
   const handleMarkContentRead = async () => {
-    if (!courseData || !courseData.sequentialConcepts[currentConceptIndex]) return
+    if (!courseData || !courseData.sequentialConcepts[currentConceptIndex] || !courseId) return
     setMarkingContent(true)
     try {
       const concept = courseData.sequentialConcepts[currentConceptIndex]
       await apiClient.updateConceptProgress(concept._id, 'mark_description_read', {
-        courseId: resolvedParams.id,
+        courseId: courseId,
         timeSpent: 0
       })
       
@@ -450,23 +467,25 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         setConceptProgress(prev => ({ ...prev, videoWatched: true }))
         
         // Update progress in backend
-        apiClient.updateConceptProgress(concept._id, 'mark_video_watched', {
-          courseId: resolvedParams.id,
-          timeSpent: 120 // 2 minutes
-        }).catch(error => {
-          console.error('Failed to update video progress:', error)
-        })
+        if (courseId) {
+          apiClient.updateConceptProgress(concept._id, 'mark_video_watched', {
+            courseId: courseId,
+            timeSpent: 120 // 2 minutes
+          }).catch(error => {
+            console.error('Failed to update video progress:', error)
+          })
+        }
       }, 2000)
     }
   }
 
   const handleMarkVideoWatched = async () => {
-    if (!courseData || !courseData.sequentialConcepts[currentConceptIndex]) return
+    if (!courseData || !courseData.sequentialConcepts[currentConceptIndex] || !courseId) return
     setMarkingVideo(true)
     try {
       const concept = courseData.sequentialConcepts[currentConceptIndex]
       await apiClient.updateConceptProgress(concept._id, 'mark_video_watched', {
-        courseId: resolvedParams.id,
+        courseId: courseId,
         timeSpent: 120
       })
       
@@ -533,7 +552,9 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     } else {
       // For failed quiz, reset progress
       const concept = courseData.sequentialConcepts[currentConceptIndex];
-      await apiClient.resetConceptProgress(concept._id, resolvedParams.id);
+      if (courseId) {
+        await apiClient.resetConceptProgress(concept._id, courseId);
+      }
       setConceptProgress(prev => ({
         ...prev,
         descriptionRead: false,
@@ -556,10 +577,10 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       // Go to next concept
       const next = await getNextConcept();
       if (next) {
-        router.push(`/courses/${resolvedParams.id}/learn?concept=${next._id}`);
+        router.push(`/courses/${courseId}/learn?concept=${next._id}`);
     } else {
         // Course completed
-        router.push(`/courses/${resolvedParams.id}`);
+        router.push(`/courses/${courseId}`);
       }
     } else {
       // Return to current concept (reset everything)
@@ -573,9 +594,11 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   }
 
   const getNextConcept = async () => {
+    if (!courseId) return null
+    
     try {
       // Get the full course dashboard to find the next concept
-      const dashboardResponse = await apiClient.getCourseDashboard(resolvedParams.id)
+      const dashboardResponse = await apiClient.getCourseDashboard(courseId)
       
       if (!dashboardResponse.success) {
         console.error('Failed to get course dashboard for next concept')
@@ -682,7 +705,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
               <p className="text-gray-600 dark:text-gray-300 mb-4">
                 This course doesn't have any concepts configured yet.
               </p>
-              <Button onClick={() => router.push(`/courses/${resolvedParams.id}`)}>
+              <Button onClick={() => router.push(`/courses/${courseId}`)}>
                 Back to Course
               </Button>
           </div>
@@ -940,7 +963,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                         </Button>
                         <Button
                       onClick={() => {
-                        router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
+                        router.push(`/courses/${courseId}/learn?concept=${nextConcept._id}`)
                       }}
                       className="bg-green-600 hover:bg-green-700 text-white flex-1"
                       size="lg"
@@ -1085,7 +1108,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                 totalQuestions: currentConcept.quiz.questions.length,
                 testType: 'concept_quiz',
                 conceptId: currentConcept._id,
-                courseId: resolvedParams.id,
+                courseId: courseId || '',
                 passingScore: 75
               }}
               onQuizComplete={handleQuizComplete}
@@ -1206,9 +1229,9 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                         if (next) {
                           setShowQuizResults(false);
                           setQuizResults(null);
-                          router.push(`/courses/${resolvedParams.id}/learn?concept=${next._id}`);
+                          router.push(`/courses/${courseId}/learn?concept=${next._id}`);
                         } else {
-                          router.push(`/courses/${resolvedParams.id}`);
+                          router.push(`/courses/${courseId}`);
                         }
                       }}
                       className="bg-green-600 hover:bg-green-700 text-white"
