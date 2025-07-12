@@ -975,12 +975,18 @@ export class CourseLearningController {
 
       // Count completed concepts in this course
       const completedConcepts = conceptProgresses.filter(cp => cp.status === 'completed').length;
+      const totalConcepts = conceptProgresses.length;
+
+      // Calculate overall progress percentage
+      const overallProgress = totalConcepts > 0 ? Math.round((completedConcepts / totalConcepts) * 100) : 0;
 
       // Update course progress
       await UserProgress.findOneAndUpdate(
         { userId, courseId: course._id },
         {
           conceptsCompleted: completedConcepts,
+          totalConcepts: totalConcepts,
+          overallProgress: overallProgress,
           lastAccessedAt: new Date()
         },
         { new: true }

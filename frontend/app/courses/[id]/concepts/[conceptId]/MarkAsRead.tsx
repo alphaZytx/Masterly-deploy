@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BookOpen, Video, CheckCircle, Loader2 } from "lucide-react";
 
 interface MarkAsReadProps {
   contentRead: boolean;
@@ -45,15 +46,29 @@ export default function MarkAsRead({ contentRead, setContentRead, videoRead, set
       <Button
         onClick={markContentRead}
         disabled={contentRead || loading}
-        className={contentRead ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-400 hover:bg-yellow-500'}
+        className={contentRead ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-white'}
       >
+        {loading ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : contentRead ? (
+          <CheckCircle className="w-4 h-4 mr-2" />
+        ) : (
+          <BookOpen className="w-4 h-4 mr-2" />
+        )}
         {contentRead ? 'Content Read' : 'Mark Content as Read'}
       </Button>
       <Button
         onClick={markVideoRead}
         disabled={videoRead || loading}
-        className={videoRead ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-400 hover:bg-yellow-500'}
+        className={videoRead ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-white'}
       >
+        {loading ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : videoRead ? (
+          <CheckCircle className="w-4 h-4 mr-2" />
+        ) : (
+          <Video className="w-4 h-4 mr-2" />
+        )}
         {videoRead ? 'Video Watched' : 'Mark Video as Watched'}
       </Button>
     </div>

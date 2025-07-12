@@ -160,6 +160,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
   const [justPassedQuiz, setJustPassedQuiz] = useState(false)
   const [markingContent, setMarkingContent] = useState(false)
   const [markingVideo, setMarkingVideo] = useState(false)
+  const [redirectCountdown, setRedirectCountdown] = useState(0)
   
   const { user } = useAuthStore()
   const router = useRouter()
@@ -184,6 +185,13 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       setShowNextButton(true)
     }
   }, [searchParams])
+
+  // Cleanup countdown on unmount
+  useEffect(() => {
+    return () => {
+      setRedirectCountdown(0)
+    }
+  }, [])
 
   const loadCourseLearning = async (page: number = 1) => {
     try {
@@ -400,8 +408,19 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       })
       await loadConceptProgress()
       await loadCourseLearning()
+      
+      // Show success toast
+      toast({
+        title: "Content Marked as Read! 📖",
+        description: "Great progress! Keep going to unlock the next steps.",
+        duration: 2000,
+      })
     } catch (error) {
-      // Optionally show an error
+      toast({
+        title: "Error",
+        description: "Failed to mark content as read. Please try again.",
+        duration: 3000,
+      })
     } finally {
       setMarkingContent(false)
     }
@@ -443,8 +462,19 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       })
       await loadConceptProgress()
       await loadCourseLearning()
+      
+      // Show success toast
+      toast({
+        title: "Video Marked as Watched! 🎥",
+        description: "Excellent! You're making great progress through this concept.",
+        duration: 2000,
+      })
     } catch (error) {
-      // Optionally show an error
+      toast({
+        title: "Error",
+        description: "Failed to mark video as watched. Please try again.",
+        duration: 3000,
+      })
     } finally {
       setMarkingVideo(false)
     }
@@ -475,6 +505,9 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         isCompleted: true
       }));
       setJustPassedQuiz(true);
+      
+      // Refresh course data to update progress
+      await loadCourseLearning();
     } else {
       // Reset backend progress
       const concept = courseData.sequentialConcepts[currentConceptIndex];
@@ -488,6 +521,9 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
         isCompleted: false
       }));
       setJustPassedQuiz(false);
+      
+      // Refresh course data
+      await loadCourseLearning();
     }
   };
 
@@ -496,7 +532,38 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
     if (passed) {
       setJustPassedQuiz(true)
       setShowNextButton(true)
-      // No redirect or reload
+      
+      // Show success toast
+      toast({
+        title: "Quiz Passed! 🎉",
+        description: "Great job! You've successfully completed this concept. Redirecting to the next concept...",
+        duration: 3000,
+      })
+      
+      // Auto-redirect to next concept after a short delay
+      const nextConcept = getNextConcept()
+      if (nextConcept) {
+        // Start countdown
+        setRedirectCountdown(3)
+        const countdownInterval = setInterval(() => {
+          setRedirectCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(countdownInterval)
+              router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
+              setShowNextButton(false)
+              return 0
+            }
+            return prev - 1
+          })
+        }, 1000)
+      } else {
+        // If no next concept, show completion message
+        toast({
+          title: "Course Completed! 🏆",
+          description: "Congratulations! You've completed all concepts in this course.",
+          duration: 5000,
+        })
+      }
     } else {
       await loadConceptProgress()
       await loadCourseLearning()
@@ -753,18 +820,24 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
               <CardContent>
                 {/* Step 1: Description - Always Visible */}
                 <div className="mb-6">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
-                    Concept Description
-                  </h4>
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                    <p className="text-blue-800 dark:text-blue-200">
-                      {currentConcept.description || 
-                       currentConcept.content?.intro || 
-                       'No description available for this concept.'}
-                    </p>
-                        </div>
-                          </div>
+                  <div className="mb-4 p-4 rounded-xl border-2 border-blue-400 bg-white/80 dark:bg-gray-900/60 shadow flex flex-col gap-2 relative">
+                    <h3 className="text-2xl font-extrabold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 bg-clip-text text-transparent mb-2">
+                      {currentConcept.title}
+                    </h3>
+                    {/* Description/theory */}
+                    {(currentConcept.description || currentConcept.content?.intro) && (
+                      <div className="mb-4">
+                        <h4 className="font-bold mb-2 text-blue-700 flex items-center gap-2">
+                          <BookOpen className="w-4 h-4" />
+                          Description
+                        </h4>
+                        <p className="text-base text-muted-foreground">
+                          {currentConcept.description || currentConcept.content?.intro}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
                       
                 {/* Vertical Layout with Collapsible Sections */}
                 <div className="space-y-6 mb-6">
@@ -779,7 +852,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                   />
                   {/* Video Section */}
                   <VideoSection
-                    videoUrl={currentConcept.videoUrl || currentConcept.content?.videoUrl}
+                    videoUrl={currentConcept.videoUrl || currentConcept.content?.videoUrl || ''}
                     videoWatched={conceptProgress.videoWatched}
                     onMarkWatched={handleMarkVideoWatched}
                     markingVideo={markingVideo}
@@ -796,7 +869,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                   {/* Quiz Section */}
                   <QuizSection
                     quiz={currentConcept.quiz}
-                    canTakeQuiz={currentConcept.canTakeQuiz}
+                    canTakeQuiz={currentConcept.canTakeQuiz || false}
                     onStartQuiz={handleQuizStart}
                     quizLoading={quizLoading}
                     onQuizComplete={handleQuizComplete}
@@ -988,7 +1061,15 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
       {/* Next Button after passing quiz */}
       {showNextButton && nextConcept && (
         <div className="mb-6">
-                          <Button
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-center gap-2 text-green-800 dark:text-green-200">
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-medium">
+                Quiz completed successfully! Auto-redirecting to next concept in {redirectCountdown} seconds...
+              </span>
+            </div>
+          </div>
+          <Button
             onClick={() => {
               router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
               setShowNextButton(false)
@@ -998,7 +1079,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
           >
             <ArrowRight className="w-5 h-5 mr-2" />
             Continue to Next Concept: {nextConcept.title}
-                          </Button>
+          </Button>
         </div>
       )}
     </div>
@@ -1055,56 +1136,99 @@ const ContentSection = memo(function ContentSection(props: ContentSectionProps) 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
       <div
-        className="flex items-center justify-between p-4 cursor-pointer"
+        className="flex items-center justify-between p-4 cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         onClick={() => setContentExpanded((prev) => !prev)}
       >
-        <h4 className="font-semibold flex items-center gap-2">
-          <BookOpen className="w-5 h-5" />
-          Read Content
-        </h4>
-        {contentRead && <CheckCircle className="w-5 h-5 text-green-600" />}
+        <div className="flex items-center gap-3">
+          <BookOpen className="w-5 h-5 text-blue-600" />
+          <h4 className="font-semibold text-gray-900 dark:text-white">
+            Read Content
+          </h4>
+          {contentRead && (
+            <CheckCircle className="w-5 h-5 text-green-600" />
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!contentRead && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                onMarkRead()
+              }}
+              size="sm"
+              className="bg-yellow-500 hover:bg-yellow-600 text-white"
+              disabled={markingContent}
+            >
+              {markingContent ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <BookOpen className="w-4 h-4 mr-2" />
+              )}
+              {markingContent ? 'Marking...' : 'Mark as Read'}
+            </Button>
+          )}
+          {contentRead && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                onMarkRead()
+              }}
+              disabled={true}
+              className="bg-green-500 cursor-not-allowed text-white"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Marked as Read
+            </Button>
+          )}
+          {contentExpanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-2 px-4 pb-4">
-        {!contentRead && (
-          <Button onClick={onMarkRead} size="sm" disabled={markingContent}>
-            {markingContent ? 'Marking...' : 'Mark as Read'}
-                        </Button>
-        )}
-        {contentRead && (
-          <Button onClick={onMarkRead} size="sm" disabled>
-            Marked as Read
-          </Button>
-        )}
-                      </div>
+      
       {contentExpanded && (
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           {content ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {content.intro && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                  <h5 className="font-semibold mb-2 text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                <div className="p-4 rounded-xl border-2 border-blue-400 bg-white/80 dark:bg-gray-900/60 shadow">
+                  <h5 className="font-bold text-lg mb-2 text-blue-700 flex items-center gap-2">
                     <BookOpen className="w-4 h-4" />
                     Introduction
                   </h5>
-                  <p className="text-blue-800 dark:text-blue-200 text-sm">{content.intro}</p>
-                    </div>
+                  <p className="text-base text-muted-foreground">{content.intro}</p>
+                </div>
               )}
               {content.sections && content.sections.length > 0 && (
-                <div className="space-y-3">
+                <div className="space-y-6">
                   {content.sections.map((section: any, index: number) => (
-                    <div key={index} className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                      <h6 className="font-semibold mb-2 text-gray-900 dark:text-white flex items-center gap-2">
+                    <div key={index} className="p-4 rounded-xl border border-purple-200 bg-purple-50 dark:bg-gray-900/30">
+                      <h6 className="font-bold text-lg mb-2 text-purple-700 flex items-center gap-2">
                         <BookOpen className="w-4 h-4" />
                         {section.heading}
                       </h6>
-                      <p className="text-gray-800 dark:text-gray-200 text-sm">{section.content}</p>
+                      <p className="mb-2 text-base text-muted-foreground">{section.content}</p>
+                      {section.codeExamples && section.codeExamples.length > 0 && (
+                        <div className="bg-gray-900 text-white rounded-lg p-3 overflow-x-auto text-sm">
+                          {section.codeExamples.map((code: string, cidx: number) => (
+                            <pre key={cidx} className="mb-2 whitespace-pre-wrap"><code>{code}</code></pre>
+                          ))}
                         </div>
+                      )}
+                    </div>
                   ))}
-                          </div>
+                </div>
               )}
-                        </div>
-          ) : null}
-                      </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>No content available for this concept.</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -1129,34 +1253,35 @@ const VideoSection = memo(function VideoSection(props: VideoSectionProps) {
           </div>
           <div className="flex items-center gap-2">
             {!videoWatched && (
-                      <Button
+              <Button
                 onClick={(e) => {
                   e.stopPropagation()
                   onMarkWatched()
                 }}
-                        size="sm"
-                className="bg-green-600 hover:bg-green-700"
-              disabled={markingVideo}
-            >
+                size="sm"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                disabled={markingVideo}
+              >
                 {markingVideo ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                  <Video className="w-4 h-4 mr-2" />
                 )}
                 Mark as Watched
-                      </Button>
-          )}
+              </Button>
+            )}
             {videoWatched && (
-            <Button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onMarkWatched()
-                  }}
-                  disabled={true}
-                  className="bg-gray-400 cursor-not-allowed"
-                >
-                  Already Watched
-            </Button>
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMarkWatched()
+                }}
+                disabled={true}
+                className="bg-green-500 cursor-not-allowed text-white"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Already Watched
+              </Button>
             )}
             {videoExpanded ? (
               <ChevronUp className="w-5 h-5 text-gray-500" />
