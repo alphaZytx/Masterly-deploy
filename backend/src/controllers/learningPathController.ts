@@ -271,16 +271,27 @@ export class LearningPathController {
   private static async generateCustomPath(course: any, startNode?: Types.ObjectId): Promise<Types.ObjectId[]> {
     const path: Types.ObjectId[] = [];
 
-    for (const topic of course.topics) {
-      if (topic.useReferencedConcepts) {
-        // Use referenced concepts
-        for (const ref of topic.conceptReferences) {
-          path.push(ref.conceptId);
+    // Check for new schema: direct concepts array
+    if (course.concepts && Array.isArray(course.concepts)) {
+      for (const concept of course.concepts) {
+        if (concept.conceptId) {
+          path.push(concept.conceptId);
         }
-      } else {
-        // Use embedded concepts
-        for (const concept of topic.concepts) {
-          path.push(concept._id);
+      }
+    }
+    // Check for old schema: topics with conceptReferences
+    else if (course.topics && Array.isArray(course.topics)) {
+      for (const topic of course.topics) {
+        if (topic.useReferencedConcepts) {
+          // Use referenced concepts
+          for (const ref of topic.conceptReferences) {
+            path.push(ref.conceptId);
+          }
+        } else {
+          // Use embedded concepts
+          for (const concept of topic.concepts) {
+            path.push(concept._id);
+          }
         }
       }
     }

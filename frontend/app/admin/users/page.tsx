@@ -86,6 +86,8 @@ export default function UserManagementPage() {
     role: "student" as string,
     isActive: true
   })
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
   const fetchUsers = async () => {
     try {
@@ -243,6 +245,46 @@ export default function UserManagementPage() {
       setError("")
     } catch (err: any) {
       setError(err.message || "Failed to update user")
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    const user = users.find(u => u._id === userId)
+    if (user) {
+      setUserToDelete(user)
+      setShowDeleteConfirm(true)
+    }
+  }
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userToDelete._id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to delete user")
+      }
+
+      // Remove user from local state
+      setUsers(prev => prev.filter(user => user._id !== userToDelete._id))
+      setError("")
+      
+      // Close modals
+      setShowDeleteConfirm(false)
+      setUserToDelete(null)
+      if (showUserModal) {
+        setShowUserModal(false)
+        setSelectedUser(null)
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to delete user")
     }
   }
 
@@ -529,7 +571,10 @@ export default function UserManagementPage() {
                           Change Role
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => handleDeleteUser(user._id)}
+                        >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete User
                         </DropdownMenuItem>
@@ -640,6 +685,14 @@ export default function UserManagementPage() {
                     <UserCog className="w-4 h-4 mr-2" />
                     Change Role
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleDeleteUser(selectedUser._id)}
+                    className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete User
+                  </Button>
                 </div>
               </div>
             </div>
@@ -743,6 +796,75 @@ export default function UserManagementPage() {
                   >
                     <Save className="w-4 h-4 mr-2" />
                     Save Changes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Delete User
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setUserToDelete(null)
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <Avatar className="w-12 h-12">
+                    <AvatarImage src={userToDelete.profile?.avatar} />
+                    <AvatarFallback className="bg-purple-100 text-purple-600">
+                      {userToDelete.profile?.firstName?.[0]}{userToDelete.profile?.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {userToDelete.profile?.fullName || userToDelete.profile?.displayName || userToDelete.email}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{userToDelete.email}</p>
+                  </div>
+                </div>
+
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Are you sure you want to delete this user? This action cannot be undone and will permanently remove the user account and all associated data.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDeleteConfirm(false)
+                      setUserToDelete(null)
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmDeleteUser}
+                    className="flex-1"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete User
                   </Button>
                 </div>
               </div>

@@ -94,23 +94,34 @@ export class CourseStatsCalculator {
   private static extractConceptIds(course: any): Types.ObjectId[] {
     const conceptIds: Types.ObjectId[] = [];
 
-    course.topics.forEach((topic: any) => {
-      if (topic.useReferencedConcepts && topic.conceptReferences) {
-        // Add referenced concept IDs
-        topic.conceptReferences.forEach((ref: any) => {
-          if (ref.conceptId) {
-            conceptIds.push(ref.conceptId);
-          }
-        });
-      } else if (topic.concepts) {
-        // Add embedded concept IDs
-        topic.concepts.forEach((concept: any) => {
-          if (concept._id) {
-            conceptIds.push(concept._id);
-          }
-        });
-      }
-    });
+    // Check for new schema: direct concepts array
+    if (course.concepts && Array.isArray(course.concepts)) {
+      course.concepts.forEach((concept: any) => {
+        if (concept.conceptId) {
+          conceptIds.push(concept.conceptId);
+        }
+      });
+    }
+    // Check for old schema: topics with conceptReferences
+    else if (course.topics && Array.isArray(course.topics)) {
+      course.topics.forEach((topic: any) => {
+        if (topic.useReferencedConcepts && topic.conceptReferences) {
+          // Add referenced concept IDs
+          topic.conceptReferences.forEach((ref: any) => {
+            if (ref.conceptId) {
+              conceptIds.push(ref.conceptId);
+            }
+          });
+        } else if (topic.concepts) {
+          // Add embedded concept IDs
+          topic.concepts.forEach((concept: any) => {
+            if (concept._id) {
+              conceptIds.push(concept._id);
+            }
+          });
+        }
+      });
+    }
 
     return conceptIds;
   }

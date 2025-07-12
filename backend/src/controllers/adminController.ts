@@ -227,13 +227,33 @@ export const getEmergencyContacts = async (req: Request, res: Response) => {
 // GET /api/admin/courses-with-concepts
 export const getCoursesWithConceptTitles = async (req: Request, res: Response) => {
   try {
-    const courses = await require('../models/courseModel').default.find({}, 'title _id topics');
-    const result = courses.map((course: any) => ({
-      _id: course._id,
-      title: course.title,
-      // Use topics if concepts is not present
-      concepts: (course.topics || []).flatMap((topic: any) => (topic.conceptReferences || []).map((c: any) => ({ conceptId: c.conceptId, title: c.title })))
-    }));
+    const courses = await require('../models/courseModel').default.find({}, 'title _id concepts topics');
+    const result = courses.map((course: any) => {
+      let concepts: any[] = [];
+      
+      // Check for new schema: direct concepts array
+      if (course.concepts && Array.isArray(course.concepts)) {
+        concepts = course.concepts.map((c: any) => ({ 
+          conceptId: c.conceptId, 
+          title: c.title 
+        }));
+      }
+      // Check for old schema: topics with conceptReferences
+      else if (course.topics && Array.isArray(course.topics)) {
+        concepts = course.topics.flatMap((topic: any) => 
+          (topic.conceptReferences || []).map((c: any) => ({ 
+            conceptId: c.conceptId, 
+            title: c.customTitle || c.title || 'Referenced Concept' 
+          }))
+        );
+      }
+      
+      return {
+        _id: course._id,
+        title: course.title,
+        concepts: concepts
+      };
+    });
     res.json({ success: true, data: result });
   } catch (err: any) {
     res.status(500).json({ success: false, message: 'Failed to fetch courses', error: err.message });

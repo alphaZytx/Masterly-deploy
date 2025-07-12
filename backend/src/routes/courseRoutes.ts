@@ -952,10 +952,16 @@ const generateCourseTestQuestions = async (course: any, testType: string) => {
   const questions = [];
   const allConcepts: any[] = [];
 
-  // Collect all concepts from course topics
-  for (const topic of (((course as any).topics || []) as any[])) {
-    if ((topic as any).concepts && Array.isArray((topic as any).concepts)) {
-      allConcepts.push(...(topic as any).concepts);
+  // Check for new schema: direct concepts array
+  if (course.concepts && Array.isArray(course.concepts)) {
+    allConcepts.push(...course.concepts);
+  }
+  // Check for old schema: topics with concepts
+  else if (course.topics && Array.isArray(course.topics)) {
+    for (const topic of course.topics) {
+      if (topic.concepts && Array.isArray(topic.concepts)) {
+        allConcepts.push(...topic.concepts);
+      }
     }
   }
 
@@ -1114,10 +1120,16 @@ const shuffleArray = (array: any[]) => {
 const buildSequentialConcepts = async (course: any, progressMap: Map<string, any>, userId: string) => {
   const allConcepts: any[] = [];
 
-  // Collect all concepts from course topics
-  for (const topic of (((course as any).topics || []) as any[])) {
-    if ((topic as any).concepts && Array.isArray((topic as any).concepts)) {
-      allConcepts.push(...(topic as any).concepts);
+  // Check for new schema: direct concepts array
+  if (course.concepts && Array.isArray(course.concepts)) {
+    allConcepts.push(...course.concepts);
+  }
+  // Check for old schema: topics with concepts
+  else if (course.topics && Array.isArray(course.topics)) {
+    for (const topic of course.topics) {
+      if (topic.concepts && Array.isArray(topic.concepts)) {
+        allConcepts.push(...topic.concepts);
+      }
     }
   }
 
