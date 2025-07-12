@@ -870,7 +870,7 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                       </div>
                       
                 {/* Step 5: Next Button - Only show after quiz completion */}
-                {(justPassedQuiz || conceptProgress.quizPassed) && nextConcept && (
+                {conceptProgress.quizPassed && nextConcept && (
                   <div className="mb-6 flex flex-col md:flex-row gap-4">
                         <Button
                       onClick={() => setShowQuizModal(true)}
@@ -881,8 +881,6 @@ export default function DynamicLearningPage({ params }: LearningPageProps) {
                         </Button>
                         <Button
                       onClick={() => {
-                        setShowNextButton(false)
-                        setJustPassedQuiz(false)
                         router.push(`/courses/${resolvedParams.id}/learn?concept=${nextConcept._id}`)
                       }}
                       className="bg-green-600 hover:bg-green-700 text-white flex-1"
